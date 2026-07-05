@@ -62,15 +62,18 @@ notiflex-platform-test/
 │   └── smb/           # Kubernetes 매니페스트 (SMB 테넌트)
 ├── terraform/
 │   └── gcp/
-│       └── gke/       # GKE 클러스터 (IaC, GCS backend, tfenv, direnv)
+│       ├── gke/       # GKE 클러스터 (IaC)
+│       └── apps/      # 앱 배포용 GCP 리소스 (Artifact Registry 등)
 └── .github/
     └── workflows/     # CI 파이프라인 (GitHub Actions)
 ```
 
-## Terraform (terraform/gcp/gke/)
+## Terraform (terraform/gcp/)
 
-- **State**: GCS backend (`gs://notiflex-tfstate-454892209447`, prefix `gcp/gke/notiflex-cluster`)
-- **버전 고정**: `.terraform-version`(tfenv) + `01-provider.tf`에 Terraform·provider 버전 static 고정
-- **변수 주입**: `.envrc`(direnv)의 `TF_VAR_*` 환경변수 — 실행 시 `&& source ./.envrc &&`로 한 줄에 이어서
-- **리소스 정의**: 리소스 레벨 값은 `03-locals.tf`의 `gke_definitions` map으로 정의하고 `for_each`로 순회
-- **작업 습관**: 코드 작성 후 `terraform fmt`, `apply` 전 `terraform validate` + `plan` 검토
+- **폴더 분리**: GCP 리소스는 `terraform/gcp/` 아래 서비스 단위 폴더로 분리한다 (`gke/`, `apps/` 등). 각 폴더는 독립 state(backend prefix로 구분).
+- **State**: GCS backend (private 버킷). prefix는 폴더별로 분리 (`gcp/gke/...`, `gcp/apps`).
+- **버전 고정**: `.terraform-version`(tfenv) + `01-provider.tf`에 Terraform·provider 버전 static 고정.
+- **변수 주입**: `.envrc`(direnv)의 `TF_VAR_*` 환경변수 — 실행 시 `&& source ./.envrc &&`로 한 줄에 이어서.
+- **리소스 정의**: 리소스 레벨 값은 `03-locals.tf`의 map으로 정의하고 `for_each`로 순회한다 (gke는 `gke_definitions`, apps는 `app_definitions`). 리소스 이름은 map의 key를 사용한다.
+- **공통 라벨**: 모든 GCP 리소스에 `03-locals.tf`의 `common_labels`(`project = "notiflex"`, `managed-by = "terraform"`)를 붙인다. 폴더 간 동일하게 유지한다. (provider가 자동으로 붙이는 `goog-terraform-provisioned=true`는 별개)
+- **작업 습관**: 코드 작성 후 `terraform fmt`, `apply` 전 `terraform validate` + `plan` 검토.

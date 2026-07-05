@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notiflex-api
+  namespace: notiflex
+  labels:
+    app: notiflex-api
+    tenant: smb
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notiflex-api
+  template:
+    metadata:
+      labels:
+        app: notiflex-api
+        tenant: smb
+    spec:
+      containers:
+        - name: notiflex-api
+          image: asia-northeast3-docker.pkg.dev/project-fea698e1-5762-48a2-918/notiflex/api:v0.1.0
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # 앱이 /id 응답의 generated_by에 넣을 Pod 이름을 Downward API로 주입한다.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 64Mi

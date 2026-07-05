@@ -5,6 +5,9 @@ resource "google_container_cluster" "this" {
   name     = each.key
   location = each.value.az[0] # 단일 존 = Zonal 클러스터
 
+  # 공통 라벨 (apps 폴더와 통일).
+  resource_labels = local.common_labels
+
   # 기본 노드풀을 제거하고 아래 google_container_node_pool로 별도 관리한다 (모범 사례).
   remove_default_node_pool = true
   initial_node_count       = 1
@@ -45,5 +48,8 @@ resource "google_container_node_pool" "this" {
     machine_type = each.value.pool.machine_type
     disk_size_gb = each.value.pool.disk_size_gb
     spot         = each.value.pool.spot
+
+    # 노드(GCE 인스턴스) 공통 라벨 (apps 폴더와 통일).
+    resource_labels = local.common_labels
   }
 }

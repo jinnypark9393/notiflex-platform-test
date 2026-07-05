@@ -14,7 +14,7 @@
 | ch2 | 2.3 gcloud 설정 | ✅ | 2026-07-05 | 개인 계정 분리, 실습 프로젝트/리전 설정, 필요 API 활성화 |
 | ch2 | 2.4 GitHub 저장소 | ✅ | 2026-07-05 | notiflex-platform-test public repo + CLAUDE.md + 구조 |
 | ch2 | 2.5 GKE 클러스터 | ✅ | 2026-07-05 | **Terraform으로** 생성 (Zonal, Spot, Gateway API) |
-| ch2 | 2.6 빌드/배포 | ⬜ | | |
+| ch2 | 2.6 빌드/배포 | ✅ | 2026-07-05 | Go 앱, Cloud Build, AR(Terraform), K8s 배포(Pod 2개 Running) |
 | ch2 | 2.7 첫 커밋 | ⬜ | | |
 | ch3 | 3.2 GitOps 도구 | ⬜ | | |
 | ch3 | 3.3 기능 추가 | ⬜ | | |
@@ -50,15 +50,18 @@
 | Terraform state (ch2.5) | GCS backend | local state, bootstrap 모듈 | 버전관리 버킷, 팀 공유 표준. 버킷은 gcloud로 부트스트랩 |
 | Terraform 버전 관리 (ch2.5) | tfenv + `.terraform-version` | 시스템 전역 설치 | 프로젝트별 버전 고정, 팀원 일치 |
 | Terraform 변수 주입 (ch2.5) | direnv `.envrc` (`TF_VAR_*`) | tfvars 파일 | 환경변수 주입, 로컬 값 분리 |
+| 이미지 빌드 (ch2.6) | Cloud Build (`gcloud builds submit`) | 로컬 Docker buildx | 원격 빌드, 로컬 Docker 불필요, 크로스컴파일 불필요 |
+| 이미지 저장소 (ch2.6) | Artifact Registry (Terraform) | Docker Hub, GCR | GKE 네이티브, IaC 관리, 리전 로컬 |
 
 ## Terraform 인프라 (IaC)
 
 | 항목 | 값 |
 |------|-----|
-| 코드 위치 | `terraform/gcp/gke/` |
-| State | GCS backend (private 버킷, versioning 활성화) |
-| 리소스 정의 방식 | `03-locals.tf`의 `gke_definitions` map + `for_each` |
-| 관리 리소스 | `google_container_cluster`, `google_container_node_pool` |
+| 코드 위치 | `terraform/gcp/gke/` (클러스터), `terraform/gcp/apps/` (앱 리소스) |
+| State | GCS backend (private 버킷, versioning 활성화). prefix 폴더별 분리 |
+| 리소스 정의 방식 | `03-locals.tf`의 map + `for_each` (gke: `gke_definitions`, apps: `app_definitions`) |
+| 공통 라벨 | `project=notiflex`, `managed-by=terraform` (전 폴더 통일) |
+| 관리 리소스 | `google_container_cluster`, `google_container_node_pool`, `google_artifact_registry_repository` |
 
 ## 현재 버전
 
@@ -67,15 +70,15 @@
 | Terraform | 1.15.7 | tfenv 고정 |
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
-| Go | - | (2.6 예정) |
-| Notiflex 이미지 | - | (2.6 예정) |
+| Go | 1.25 | go.mod + golang:1.25-alpine |
+| Notiflex 이미지 | v0.1.0 | api:v0.1.0 (scratch 베이스) |
 | ArgoCD | - | (3장 예정) |
 
 ## 현재 리소스
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot) | 2 | (아직 없음 — 2.6에서 notiflex-api 배포 예정) |
+| default-pool | e2-medium (Spot) | 2 | notiflex-api (smb, replicas 2) |
 
 - 클러스터: `notiflex-cluster` (asia-northeast3-a, Zonal, Public)
 - Gateway API: `CHANNEL_STANDARD` 활성화
@@ -91,3 +94,5 @@
 | 2.5 | ADC가 회사 계정 기반이라 개인 프로젝트 접근 불가 | 개인 계정으로 `gcloud auth application-default login` 수행 (quota project 자동 정렬) |
 | 2.5 | Gateway API를 처음 locals에서 누락 | apply 전 `gateway_api_channel = "CHANNEL_STANDARD"` 추가하여 처음부터 켜진 채로 생성 |
 | 2.5 | kubectl `gke-gcloud-auth-plugin not found` | `gcloud components install gke-gcloud-auth-plugin`로 설치 |
+| 2.6 | `gcloud builds submit` 403 (compute SA가 소스 버킷 접근 불가) | 신규 프로젝트는 기본 compute SA에 권한 없음. `roles/cloudbuild.builds.builder` 부여 |
+| 2.6 | gke에 공통 라벨 추가 후 apply 시 노드풀 재생성 | GCE 인스턴스 라벨은 노드 재생성 필요. 워크로드 배포 전이라 무해 (Spot이라 원래 교체 가능) |

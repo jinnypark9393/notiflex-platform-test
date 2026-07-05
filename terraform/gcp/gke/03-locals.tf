@@ -20,4 +20,10 @@ locals {
       }
     }
   }
+
+  # 모든 리소스에 공통으로 붙이는 라벨 (apps 폴더와 통일).
+  common_labels = {
+    project    = "notiflex"
+    managed-by = "terraform"
+  }
 }
