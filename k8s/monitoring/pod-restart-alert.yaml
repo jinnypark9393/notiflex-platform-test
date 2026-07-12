@@ -1,0 +1,22 @@
+# Pod 재시작 과다 알림 룰 (책 4.4)
+# labels.release가 Helm release 이름(kube-prometheus)과 일치해야
+# Prometheus Operator가 이 룰을 로드한다 (가드레일 주의사항).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-restart-alert
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+spec:
+  groups:
+    - name: notiflex-alerts
+      rules:
+        - alert: PodRestartTooMany
+          expr: increase(kube_pod_container_status_restarts_total{namespace="notiflex"}[5m]) > 2
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} 재시작 과다"
+            description: "5분 내 {{ $value }}회 재시작"

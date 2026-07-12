@@ -23,7 +23,7 @@
 | ch3 | 3.6 CLAUDE.md 규칙 | ✅ | 2026-07-12 | 규칙 추가→delete 시나리오→selfHeal 17초 복원 확인→규칙 되돌림. 런타임 분류기도 delete 차단(3중 방어 확인) |
 | ch4 | 4.2 메트릭 모니터링 | ✅ | 2026-07-12 | kube-prometheus-stack(Helm), Notiflex 대시보드 ConfigMap 등록, 타겟 16개 수집 |
 | ch4 | 4.3 로그 수집 | ✅ | 2026-07-13 | Loki(SingleBinary) + Fluent Bit(DaemonSet×2), Grafana 데이터소스 등록, notiflex 로그 조회 확인 |
-| ch4 | 4.4 알림 | ⬜ | | |
+| ch4 | 4.4 알림 | ✅ | 2026-07-13 | PodRestartTooMany PrometheusRule 로드 확인. 단, 가이드의 테스트(파드 삭제)로는 발화 불가 — 트러블슈팅 참조 |
 | ch5 | 5.2 트래픽 관리 | ⬜ | | |
 | ch5 | 5.3 무중단 배포 | ⬜ | | |
 | ch6 | 6.1 캐시 | ⬜ | | |
@@ -101,5 +101,6 @@
 | 2.5 | kubectl `gke-gcloud-auth-plugin not found` | `gcloud components install gke-gcloud-auth-plugin`로 설치 |
 | 2.6 | `gcloud builds submit` 403 (compute SA가 소스 버킷 접근 불가) | 신규 프로젝트는 기본 compute SA에 권한 없음. `roles/cloudbuild.builds.builder` 부여 |
 | 2.6 | gke에 공통 라벨 추가 후 apply 시 노드풀 재생성 | GCE 인스턴스 라벨은 노드 재생성 필요. 워크로드 배포 전이라 무해 (Spot이라 원래 교체 가능) |
+| 4.4 | 가이드의 알림 테스트 `kubectl delete pod -l app=notiflex-api`로는 PodRestartTooMany가 발화하지 않음 (실측: 삭제 → 새 파드 RESTARTS 0, `kube_pod_container_status_restarts_total` 미증가, 90초 후에도 inactive) | 파드 삭제는 '재생성'이지 '컨테이너 재시작'이 아님. 룰을 발화시키려면 컨테이너 크래시(liveness 실패, 프로세스 종료)가 필요. 룰 자체는 정상 로드 확인 |
 | 3.5 | 가이드는 "manifest push 403 방지에 repo 레벨 Workflow permissions도 write 필수"라 하나, 실측 결과 **repo 기본값 read 유지 + ci.yaml `permissions: contents: write` 명시만으로 push 성공** | 워크플로우 레벨 permissions가 repo 기본값을 덮어씀 (GitHub 문서와 일치). repo 설정 변경 불필요 — 최소권한 유지 |
 | 3.3 | ArgoCD가 새 커밋을 수 분간 감지 못함 (`sync.revision`이 이전 커밋에 고정, 폴링 3분 경과 후에도 미갱신) | 가이드의 트러블슈팅은 NetworkPolicy egress 차단을 지목하나, 실제 repo-server NP는 **Ingress 전용**이라 무관. `kubectl annotate application notiflex-smb -n argocd argocd.argoproj.io/refresh=hard --overwrite`로 즉시 refresh하면 해결 (NP 삭제 불필요) |
