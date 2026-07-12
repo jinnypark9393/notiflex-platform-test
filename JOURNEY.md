@@ -18,7 +18,7 @@
 | ch2 | 2.7 첫 커밋 | ✅ | 2026-07-05 | 초기 구성~빌드·배포 커밋 3건 origin/main 푸시 완료 |
 | ch3 | 3.2 GitOps 도구 | ✅ | 2026-07-12 | ArgoCD v3.4.5 설치, notiflex-smb App Synced/Healthy (auto-sync+prune+selfHeal) |
 | ch3 | 3.3 기능 추가 | ✅ | 2026-07-12 | /version 추가, v0.1.1 롤링 업데이트 + git revert 롤백 테스트 완료 |
-| ch3 | 3.4 CI | ⬜ | | |
+| ch3 | 3.4 CI | ✅ | 2026-07-12 | GitHub Actions + **WIF(OIDC) keyless** 인증, sha 태그 AR 푸시 검증 |
 | ch3 | 3.5 CI-CD 연결 | ⬜ | | |
 | ch4 | 4.2 메트릭 모니터링 | ⬜ | | |
 | ch4 | 4.3 로그 수집 | ⬜ | | |
@@ -53,6 +53,7 @@
 | 이미지 빌드 (ch2.6) | Cloud Build (`gcloud builds submit`) | 로컬 Docker buildx | 원격 빌드, 로컬 Docker 불필요, 크로스컴파일 불필요 |
 | 이미지 저장소 (ch2.6) | Artifact Registry (Terraform) | Docker Hub, GCR | GKE 네이티브, IaC 관리, 리전 로컬 |
 | GitOps 도구 (ch3.2) | ArgoCD | Flux | 책 기본 흐름. 선언적 GitOps + UI 제공, App of Apps(7장) 확장 대비 |
+| CI GCP 인증 (ch3.4) | WIF (GitHub OIDC, keyless) | SA 키 JSON (책 방식 A) | 장기 크레덴셜 미보관, 로테이션 불필요. AWS의 IAM Role+OIDC와 동일 패턴. Terraform으로 pool/provider/binding IaC 관리 |
 
 ## Terraform 인프라 (IaC)
 
