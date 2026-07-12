@@ -19,7 +19,7 @@
 | ch3 | 3.2 GitOps 도구 | ✅ | 2026-07-12 | ArgoCD v3.4.5 설치, notiflex-smb App Synced/Healthy (auto-sync+prune+selfHeal) |
 | ch3 | 3.3 기능 추가 | ✅ | 2026-07-12 | /version 추가, v0.1.1 롤링 업데이트 + git revert 롤백 테스트 완료 |
 | ch3 | 3.4 CI | ✅ | 2026-07-12 | GitHub Actions + **WIF(OIDC) keyless** 인증, sha 태그 AR 푸시 검증 |
-| ch3 | 3.5 CI-CD 연결 | ⬜ | | |
+| ch3 | 3.5 CI-CD 연결 | ✅ | 2026-07-12 | CI가 매니페스트 sha 태그 자동 커밋 → ArgoCD 자동 배포, e2e 검증(v0.1.2) |
 | ch4 | 4.2 메트릭 모니터링 | ⬜ | | |
 | ch4 | 4.3 로그 수집 | ⬜ | | |
 | ch4 | 4.4 알림 | ⬜ | | |
@@ -73,7 +73,7 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | v0.1.1 | v0.1.0 → v0.1.1 (/version 엔드포인트 추가, 2026-07-12) |
+| Notiflex 이미지 | sha-b413368 (app v0.1.2) | 3.5부터 CI가 git SHA 태그 자동 부여. 앱 내부 version 상수는 v0.1.2 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
 
 ## 현재 리소스
@@ -98,4 +98,5 @@
 | 2.5 | kubectl `gke-gcloud-auth-plugin not found` | `gcloud components install gke-gcloud-auth-plugin`로 설치 |
 | 2.6 | `gcloud builds submit` 403 (compute SA가 소스 버킷 접근 불가) | 신규 프로젝트는 기본 compute SA에 권한 없음. `roles/cloudbuild.builds.builder` 부여 |
 | 2.6 | gke에 공통 라벨 추가 후 apply 시 노드풀 재생성 | GCE 인스턴스 라벨은 노드 재생성 필요. 워크로드 배포 전이라 무해 (Spot이라 원래 교체 가능) |
+| 3.5 | 가이드는 "manifest push 403 방지에 repo 레벨 Workflow permissions도 write 필수"라 하나, 실측 결과 **repo 기본값 read 유지 + ci.yaml `permissions: contents: write` 명시만으로 push 성공** | 워크플로우 레벨 permissions가 repo 기본값을 덮어씀 (GitHub 문서와 일치). repo 설정 변경 불필요 — 최소권한 유지 |
 | 3.3 | ArgoCD가 새 커밋을 수 분간 감지 못함 (`sync.revision`이 이전 커밋에 고정, 폴링 3분 경과 후에도 미갱신) | 가이드의 트러블슈팅은 NetworkPolicy egress 차단을 지목하나, 실제 repo-server NP는 **Ingress 전용**이라 무관. `kubectl annotate application notiflex-smb -n argocd argocd.argoproj.io/refresh=hard --overwrite`로 즉시 refresh하면 해결 (NP 삭제 불필요) |
