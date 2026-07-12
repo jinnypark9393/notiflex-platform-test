@@ -1,0 +1,58 @@
+# Loki 값 오버라이드 (책 4.3)
+# SingleBinary 모드 + 최소 리소스. e2-medium 2노드 예산(~10m)에 맞춰
+# 캐시/카나리/게이트웨이 등 부가 컴포넌트는 전부 끈다.
+
+deploymentMode: SingleBinary
+
+loki:
+  # 최신 차트는 schema_config 명시가 필수 — 없으면 기동 즉시 CrashLoopBackOff (가드레일)
+  useTestSchema: true
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+    # 최신 차트에서 필수 — 없으면 "Please define loki.storage.bucketNames.chunks" 에러 (가드레일)
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+
+# SimpleScalable 컴포넌트 비활성화 (SingleBinary만 사용)
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# 부가 컴포넌트 비활성화 — memcached 캐시 2종이 메모리를 GB 단위로 요구한다
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+gateway:
+  enabled: false
+
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+
+# Grafana 데이터소스로 등록될 때 default로 잡히지 않게 고정 (Prometheus가 이미 default,
+# 방치하면 ch8.2 Tempo 추가 시 "multiple datasources marked as default"로 표면화 — 가드레일)
+grafana:
+  datasource:
+    isDefault: false

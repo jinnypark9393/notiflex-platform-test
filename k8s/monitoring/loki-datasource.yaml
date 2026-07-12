@@ -1,0 +1,20 @@
+# Loki 데이터소스 등록 (책 4.3 단계 3)
+# kube-prometheus Grafana의 사이드카(grafana-sc-datasources)가
+# grafana_datasource 라벨이 붙은 ConfigMap을 자동으로 읽어 등록한다.
+# isDefault: false — Prometheus가 이미 default (가드레일 주의사항).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-datasource
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        isDefault: false

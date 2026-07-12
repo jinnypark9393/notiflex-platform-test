@@ -1,0 +1,12 @@
+# Fluent Bit 값 오버라이드 (책 4.3)
+# grafana/fluent-bit 차트 (deprecated 경고 있으나 정상 동작 — 가드레일).
+# DaemonSet으로 노드별 컨테이너 로그를 수집해 Loki로 전송한다.
+
+loki:
+  serviceName: loki
+  servicePort: 3100
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi

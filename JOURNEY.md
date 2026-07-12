@@ -22,7 +22,7 @@
 | ch3 | 3.5 CI-CD 연결 | ✅ | 2026-07-12 | CI가 매니페스트 sha 태그 자동 커밋 → ArgoCD 자동 배포, e2e 검증(v0.1.2) |
 | ch3 | 3.6 CLAUDE.md 규칙 | ✅ | 2026-07-12 | 규칙 추가→delete 시나리오→selfHeal 17초 복원 확인→규칙 되돌림. 런타임 분류기도 delete 차단(3중 방어 확인) |
 | ch4 | 4.2 메트릭 모니터링 | ✅ | 2026-07-12 | kube-prometheus-stack(Helm), Notiflex 대시보드 ConfigMap 등록, 타겟 16개 수집 |
-| ch4 | 4.3 로그 수집 | ⬜ | | |
+| ch4 | 4.3 로그 수집 | ✅ | 2026-07-13 | Loki(SingleBinary) + Fluent Bit(DaemonSet×2), Grafana 데이터소스 등록, notiflex 로그 조회 확인 |
 | ch4 | 4.4 알림 | ⬜ | | |
 | ch5 | 5.2 트래픽 관리 | ⬜ | | |
 | ch5 | 5.3 무중단 배포 | ⬜ | | |
@@ -56,6 +56,7 @@
 | GitOps 도구 (ch3.2) | ArgoCD | Flux | 책 기본 흐름. 선언적 GitOps + UI 제공, App of Apps(7장) 확장 대비 |
 | CI GCP 인증 (ch3.4) | WIF (GitHub OIDC, keyless) | SA 키 JSON (책 방식 A) | 장기 크레덴셜 미보관, 로테이션 불필요. AWS의 IAM Role+OIDC와 동일 패턴. Terraform으로 pool/provider/binding IaC 관리 |
 | 메트릭 (ch4.2) | kube-prometheus-stack (Helm) | Datadog 등 SaaS | 책 기본 흐름. 50+ 리소스를 차트 하나로, ServiceMonitor/Rule 자동 연결. requests는 values로 축소 (ch6 전 재축소 예정) |
+| 로그 (ch4.3) | Loki + Fluent Bit | ELK | 책 기본 흐름. 라벨 인덱싱으로 경량, Grafana 통합. 최신 차트의 캐시/카나리/게이트웨이는 리소스 예산 때문에 비활성화 |
 
 ## Terraform 인프라 (IaC)
 
