@@ -6,9 +6,13 @@ locals {
   #
   # 필드 설명:
   #   create_registry = Artifact Registry(Docker) 저장소 생성 여부
+  #   create_ci_sa    = CI(GitHub Actions)용 서비스 계정 생성 여부 (AR 푸시 권한 부여)
+  #   ci_github_repo  = 이 앱의 CI SA를 impersonate할 수 있는 GitHub 저장소 (WIF attribute 조건)
   app_definitions = {
     notiflex = {
       create_registry = true
+      create_ci_sa    = true
+      ci_github_repo  = "jinnypark9393/notiflex-platform-test"
     }
   }
 
