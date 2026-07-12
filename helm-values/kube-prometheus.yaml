@@ -1,0 +1,23 @@
+# kube-prometheus-stack 값 오버라이드 (책 4.2)
+# e2-medium 2노드 예산에 맞춘 requests 축소값.
+# ⚠️ ch6에서 CSI DaemonSet(240m) 추가 시 이 값들을 5m으로 재축소해야 한다 (가드레일 참조).
+
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
