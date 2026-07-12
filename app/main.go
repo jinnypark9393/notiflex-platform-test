@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 )
 
+// version은 이 바이너리의 릴리스 버전이다. 이미지 태그와 일치시킨다.
+const version = "v0.1.1"
+
 // counter는 /id 요청마다 순차적으로 증가하는 인메모리 카운터이다.
 var counter atomic.Uint64
 
@@ -21,6 +24,13 @@ var podName = func() string {
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"version":   version,
+		"served_by": podName,
+	})
 }
 
 func idHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +52,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("GET /version", versionHandler)
 	mux.HandleFunc("GET /id", idHandler)
 
 	addr := ":8080"
