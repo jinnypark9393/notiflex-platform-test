@@ -8,8 +8,9 @@ import (
 	"sync/atomic"
 )
 
-// version은 이 바이너리의 릴리스 버전이다. 이미지 태그와 일치시킨다.
-const version = "v0.1.1"
+// version은 이 바이너리의 릴리스 버전이다.
+// 이미지 태그는 CI가 git SHA(sha-<7자리>) 기반으로 자동 부여한다 (3.5부터).
+const version = "v0.1.2"
 
 // counter는 /id 요청마다 순차적으로 증가하는 인메모리 카운터이다.
 var counter atomic.Uint64
