@@ -13,7 +13,7 @@ locals {
       node_pools = {
         default-pool = {
           machine_type = "e2-medium"
-          node_count   = 0 # 실습 중단: 비용 절감을 위해 0으로 축소 (재개 시 2로 복원)
+          node_count   = 2 # 실습 재개: 노드 2개 복원 (2026-07-12)
           disk_size_gb = 30
           spot         = true
         }

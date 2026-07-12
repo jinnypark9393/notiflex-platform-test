@@ -15,7 +15,7 @@
 | ch2 | 2.4 GitHub 저장소 | ✅ | 2026-07-05 | notiflex-platform-test public repo + CLAUDE.md + 구조 |
 | ch2 | 2.5 GKE 클러스터 | ✅ | 2026-07-05 | **Terraform으로** 생성 (Zonal, Spot, Gateway API) |
 | ch2 | 2.6 빌드/배포 | ✅ | 2026-07-05 | Go 앱, Cloud Build, AR(Terraform), K8s 배포(Pod 2개 Running) |
-| ch2 | 2.7 첫 커밋 | ⬜ | | |
+| ch2 | 2.7 첫 커밋 | ✅ | 2026-07-05 | 초기 구성~빌드·배포 커밋 3건 origin/main 푸시 완료 |
 | ch3 | 3.2 GitOps 도구 | ⬜ | | |
 | ch3 | 3.3 기능 추가 | ⬜ | | |
 | ch3 | 3.4 CI | ⬜ | | |
