@@ -16,7 +16,7 @@
 | ch2 | 2.5 GKE 클러스터 | ✅ | 2026-07-05 | **Terraform으로** 생성 (Zonal, Spot, Gateway API) |
 | ch2 | 2.6 빌드/배포 | ✅ | 2026-07-05 | Go 앱, Cloud Build, AR(Terraform), K8s 배포(Pod 2개 Running) |
 | ch2 | 2.7 첫 커밋 | ✅ | 2026-07-05 | 초기 구성~빌드·배포 커밋 3건 origin/main 푸시 완료 |
-| ch3 | 3.2 GitOps 도구 | ⬜ | | |
+| ch3 | 3.2 GitOps 도구 | ✅ | 2026-07-12 | ArgoCD v3.4.5 설치, notiflex-smb App Synced/Healthy (auto-sync+prune+selfHeal) |
 | ch3 | 3.3 기능 추가 | ⬜ | | |
 | ch3 | 3.4 CI | ⬜ | | |
 | ch3 | 3.5 CI-CD 연결 | ⬜ | | |
@@ -52,6 +52,7 @@
 | Terraform 변수 주입 (ch2.5) | direnv `.envrc` (`TF_VAR_*`) | tfvars 파일 | 환경변수 주입, 로컬 값 분리 |
 | 이미지 빌드 (ch2.6) | Cloud Build (`gcloud builds submit`) | 로컬 Docker buildx | 원격 빌드, 로컬 Docker 불필요, 크로스컴파일 불필요 |
 | 이미지 저장소 (ch2.6) | Artifact Registry (Terraform) | Docker Hub, GCR | GKE 네이티브, IaC 관리, 리전 로컬 |
+| GitOps 도구 (ch3.2) | ArgoCD | Flux | 책 기본 흐름. 선언적 GitOps + UI 제공, App of Apps(7장) 확장 대비 |
 
 ## Terraform 인프라 (IaC)
 
@@ -72,7 +73,7 @@
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
 | Notiflex 이미지 | v0.1.0 | api:v0.1.0 (scratch 베이스) |
-| ArgoCD | - | (3장 예정) |
+| ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
 
 ## 현재 리소스
 
