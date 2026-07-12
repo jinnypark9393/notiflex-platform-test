@@ -17,7 +17,7 @@
 | ch2 | 2.6 빌드/배포 | ✅ | 2026-07-05 | Go 앱, Cloud Build, AR(Terraform), K8s 배포(Pod 2개 Running) |
 | ch2 | 2.7 첫 커밋 | ✅ | 2026-07-05 | 초기 구성~빌드·배포 커밋 3건 origin/main 푸시 완료 |
 | ch3 | 3.2 GitOps 도구 | ✅ | 2026-07-12 | ArgoCD v3.4.5 설치, notiflex-smb App Synced/Healthy (auto-sync+prune+selfHeal) |
-| ch3 | 3.3 기능 추가 | ⬜ | | |
+| ch3 | 3.3 기능 추가 | ✅ | 2026-07-12 | /version 추가, v0.1.1 롤링 업데이트 + git revert 롤백 테스트 완료 |
 | ch3 | 3.4 CI | ⬜ | | |
 | ch3 | 3.5 CI-CD 연결 | ⬜ | | |
 | ch4 | 4.2 메트릭 모니터링 | ⬜ | | |
@@ -72,7 +72,7 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | v0.1.0 | api:v0.1.0 (scratch 베이스) |
+| Notiflex 이미지 | v0.1.1 | v0.1.0 → v0.1.1 (/version 엔드포인트 추가, 2026-07-12) |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
 
 ## 현재 리소스
@@ -97,3 +97,4 @@
 | 2.5 | kubectl `gke-gcloud-auth-plugin not found` | `gcloud components install gke-gcloud-auth-plugin`로 설치 |
 | 2.6 | `gcloud builds submit` 403 (compute SA가 소스 버킷 접근 불가) | 신규 프로젝트는 기본 compute SA에 권한 없음. `roles/cloudbuild.builds.builder` 부여 |
 | 2.6 | gke에 공통 라벨 추가 후 apply 시 노드풀 재생성 | GCE 인스턴스 라벨은 노드 재생성 필요. 워크로드 배포 전이라 무해 (Spot이라 원래 교체 가능) |
+| 3.3 | ArgoCD가 새 커밋을 수 분간 감지 못함 (`sync.revision`이 이전 커밋에 고정, 폴링 3분 경과 후에도 미갱신) | 가이드의 트러블슈팅은 NetworkPolicy egress 차단을 지목하나, 실제 repo-server NP는 **Ingress 전용**이라 무관. `kubectl annotate application notiflex-smb -n argocd argocd.argoproj.io/refresh=hard --overwrite`로 즉시 refresh하면 해결 (NP 삭제 불필요) |
