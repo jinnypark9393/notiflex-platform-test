@@ -22,7 +22,7 @@ singleBinary:
   replicas: 1
   resources:
     requests:
-      cpu: 10m
+      cpu: 1m # ch6.2 CSI DaemonSet 예산 확보로 10m→1m 축소
       memory: 128Mi
 
 # SimpleScalable 컴포넌트 비활성화 (SingleBinary만 사용)

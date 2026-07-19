@@ -13,7 +13,7 @@ import (
 
 // version은 이 바이너리의 릴리스 버전이다.
 // 이미지 태그는 CI가 git SHA(sha-<7자리>) 기반으로 자동 부여한다 (3.5부터).
-const version = "v0.3.0"
+const version = "v0.3.1"
 
 // idKey는 /id 카운터를 저장하는 Valkey 키이다. 모든 Pod이 같은 키를 INCR하므로
 // 인메모리 카운터와 달리 Pod 수와 무관하게 전역 순차 ID가 보장된다.
@@ -89,7 +89,16 @@ func main() {
 	if addr == "" {
 		log.Fatal("VALKEY_ADDR is required")
 	}
+	// ch6.2: 비밀번호는 Secret Manager CSI가 마운트한 파일을 우선 사용한다.
+	// 파일 경로가 없으면 환경변수(VALKEY_PASSWORD)로 폴백한다.
 	password := os.Getenv("VALKEY_PASSWORD")
+	if pwFile := os.Getenv("VALKEY_PASSWORD_FILE"); pwFile != "" {
+		data, err := os.ReadFile(pwFile)
+		if err != nil {
+			log.Fatalf("failed to read password file %s: %v", pwFile, err)
+		}
+		password = string(data)
+	}
 
 	client, err := connectValkey(addr, password)
 	if err != nil {

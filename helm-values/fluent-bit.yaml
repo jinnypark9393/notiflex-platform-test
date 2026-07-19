@@ -8,5 +8,5 @@ loki:
 
 resources:
   requests:
-    cpu: 25m
+    cpu: 1m # ch6.2 CSI DaemonSet 예산 확보로 25m→1m 축소
     memory: 32Mi
