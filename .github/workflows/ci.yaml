@@ -48,18 +48,18 @@ jobs:
           # 빈 값이면 sed가 이미지 라인을 망가뜨리므로 반드시 먼저 검증한다.
           echo "IMAGE_URI=$IMAGE_URI"
           test -n "$IMAGE_URI"
-          sed -i "s|image: ${IMAGE_REPO}:.*|image: ${IMAGE_URI}|" k8s/smb/deployment.yaml
-          grep "image:" k8s/smb/deployment.yaml
+          sed -i "s|image: ${IMAGE_REPO}:.*|image: ${IMAGE_URI}|" k8s/smb/rollout.yaml
+          grep "image:" k8s/smb/rollout.yaml
 
       - name: Commit and push manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet k8s/smb/deployment.yaml; then
+          if git diff --quiet k8s/smb/rollout.yaml; then
             echo "manifest unchanged, skip commit"
             exit 0
           fi
-          git add k8s/smb/deployment.yaml
+          git add k8s/smb/rollout.yaml
           git commit -m "ci: deploy image sha-${GITHUB_SHA::7} [skip ci]"
           git push origin main
           echo "manifest updated: sha-${GITHUB_SHA::7}" >> "$GITHUB_STEP_SUMMARY"
