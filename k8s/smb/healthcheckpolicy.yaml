@@ -1,0 +1,25 @@
+# GKE Gateway는 기본으로 "/" 경로를 헬스체크하므로, Notiflex의 /health로 명시해야
+# "no healthy upstream"을 피할 수 있다.
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: notiflex-healthcheck
+  namespace: notiflex
+  labels:
+    app: notiflex-api
+    tenant: smb
+spec:
+  default:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 2
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 8080
+        requestPath: /health
+  targetRef:
+    group: ""
+    kind: Service
+    name: notiflex-api
