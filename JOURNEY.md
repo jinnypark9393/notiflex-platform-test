@@ -24,7 +24,7 @@
 | ch4 | 4.2 메트릭 모니터링 | ✅ | 2026-07-12 | kube-prometheus-stack(Helm), Notiflex 대시보드 ConfigMap 등록, 타겟 16개 수집 |
 | ch4 | 4.3 로그 수집 | ✅ | 2026-07-13 | Loki(SingleBinary) + Fluent Bit(DaemonSet×2), Grafana 데이터소스 등록, notiflex 로그 조회 확인 |
 | ch4 | 4.4 알림 | ✅ | 2026-07-13 | PodRestartTooMany PrometheusRule 로드 확인. 단, 가이드의 테스트(파드 삭제)로는 발화 불가 — 트러블슈팅 참조 |
-| ch5 | 5.2 트래픽 관리 | ⬜ | | |
+| ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API(regional external) + HTTPRoute + HealthCheckPolicy, 외부 IP 35.216.101.141에서 /health·/id 검증 |
 | ch5 | 5.3 무중단 배포 | ⬜ | | |
 | ch6 | 6.1 캐시 | ⬜ | | |
 | ch6 | 6.2 시크릿 관리 | ⬜ | | |
@@ -57,6 +57,7 @@
 | CI GCP 인증 (ch3.4) | WIF (GitHub OIDC, keyless) | SA 키 JSON (책 방식 A) | 장기 크레덴셜 미보관, 로테이션 불필요. AWS의 IAM Role+OIDC와 동일 패턴. Terraform으로 pool/provider/binding IaC 관리 |
 | 메트릭 (ch4.2) | kube-prometheus-stack (Helm) | Datadog 등 SaaS | 책 기본 흐름. 50+ 리소스를 차트 하나로, ServiceMonitor/Rule 자동 연결. requests는 values로 축소 (ch6 전 재축소 예정) |
 | 로그 (ch4.3) | Loki + Fluent Bit | ELK | 책 기본 흐름. 라벨 인덱싱으로 경량, Grafana 통합. 최신 차트의 캐시/카나리/게이트웨이는 리소스 예산 때문에 비활성화 |
+| 외부 트래픽 (ch5.2) | Gateway API (GKE managed) | Ingress(NGINX 등) | 책 기본 흐름. GKE 네이티브 L7 LB, 역할 분리된 표준 리소스, 5.3 Argo Rollouts 트래픽 제어 확장 대비 |
 
 ## Terraform 인프라 (IaC)
 
@@ -103,4 +104,5 @@
 | 2.6 | gke에 공통 라벨 추가 후 apply 시 노드풀 재생성 | GCE 인스턴스 라벨은 노드 재생성 필요. 워크로드 배포 전이라 무해 (Spot이라 원래 교체 가능) |
 | 4.4 | 가이드의 알림 테스트 `kubectl delete pod -l app=notiflex-api`로는 PodRestartTooMany가 발화하지 않음 (실측: 삭제 → 새 파드 RESTARTS 0, `kube_pod_container_status_restarts_total` 미증가, 90초 후에도 inactive) | 파드 삭제는 '재생성'이지 '컨테이너 재시작'이 아님. 룰을 발화시키려면 컨테이너 크래시(liveness 실패, 프로세스 종료)가 필요. 룰 자체는 정상 로드 확인 |
 | 3.5 | 가이드는 "manifest push 403 방지에 repo 레벨 Workflow permissions도 write 필수"라 하나, 실측 결과 **repo 기본값 read 유지 + ci.yaml `permissions: contents: write` 명시만으로 push 성공** | 워크플로우 레벨 permissions가 repo 기본값을 덮어씀 (GitHub 문서와 일치). repo 설정 변경 불필요 — 최소권한 유지 |
+| 5.2 | 가이드는 "proxy-only 서브넷을 GKE가 자동 생성"이라 하나, 실측 결과 자동 생성되지 않고 Gateway SYNC 이벤트에 `An active proxy-only subnetwork is required` 에러 발생 | `gcloud compute networks subnets create proxy-only-subnet --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE --range=172.16.0.0/23`으로 수동 생성 후 1~2분 내 IP 할당·Programmed=True |
 | 3.3 | ArgoCD가 새 커밋을 수 분간 감지 못함 (`sync.revision`이 이전 커밋에 고정, 폴링 3분 경과 후에도 미갱신) | 가이드의 트러블슈팅은 NetworkPolicy egress 차단을 지목하나, 실제 repo-server NP는 **Ingress 전용**이라 무관. `kubectl annotate application notiflex-smb -n argocd argocd.argoproj.io/refresh=hard --overwrite`로 즉시 refresh하면 해결 (NP 삭제 불필요) |
