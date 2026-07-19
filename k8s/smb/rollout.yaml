@@ -7,7 +7,9 @@ metadata:
     app: notiflex-api
     tenant: smb
 spec:
-  replicas: 2
+  # ch6 리소스 예산: B/G 전환 시 active+preview 동시 기동 + Valkey 추가를 감안해 1로 축소.
+  # ch7.2 노드풀 확장 후 2로 복원한다.
+  replicas: 1
   selector:
     matchLabels:
       app: notiflex-api
