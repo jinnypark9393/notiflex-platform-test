@@ -3,8 +3,8 @@ FROM golang:1.25-alpine AS build
 
 WORKDIR /src
 
-# 의존성 캐시 레이어 (go.mod만 먼저 복사)
-COPY go.mod ./
+# 의존성 캐시 레이어 (go.mod/go.sum만 먼저 복사)
+COPY go.mod go.sum ./
 RUN go mod download
 
 # 소스 복사 후 정적 바이너리 빌드
