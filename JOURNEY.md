@@ -25,7 +25,7 @@
 | ch4 | 4.3 로그 수집 | ✅ | 2026-07-13 | Loki(SingleBinary) + Fluent Bit(DaemonSet×2), Grafana 데이터소스 등록, notiflex 로그 조회 확인 |
 | ch4 | 4.4 알림 | ✅ | 2026-07-13 | PodRestartTooMany PrometheusRule 로드 확인. 단, 가이드의 테스트(파드 삭제)로는 발화 불가 — 트러블슈팅 참조 |
 | ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API(regional external) + HTTPRoute + HealthCheckPolicy, 외부 IP 35.216.101.141에서 /health·/id 검증 |
-| ch5 | 5.3 무중단 배포 | ⬜ | | |
+| ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts v1.9.1, Deployment→Rollout(B/G) 전환, v0.2.0 배포로 preview→30초 auto-promote e2e 검증 |
 | ch6 | 6.1 캐시 | ⬜ | | |
 | ch6 | 6.2 시크릿 관리 | ⬜ | | |
 | ch6 | 6.3 Canary 전환 | ⬜ | | |
@@ -58,6 +58,7 @@
 | 메트릭 (ch4.2) | kube-prometheus-stack (Helm) | Datadog 등 SaaS | 책 기본 흐름. 50+ 리소스를 차트 하나로, ServiceMonitor/Rule 자동 연결. requests는 values로 축소 (ch6 전 재축소 예정) |
 | 로그 (ch4.3) | Loki + Fluent Bit | ELK | 책 기본 흐름. 라벨 인덱싱으로 경량, Grafana 통합. 최신 차트의 캐시/카나리/게이트웨이는 리소스 예산 때문에 비활성화 |
 | 외부 트래픽 (ch5.2) | Gateway API (GKE managed) | Ingress(NGINX 등) | 책 기본 흐름. GKE 네이티브 L7 LB, 역할 분리된 표준 리소스, 5.3 Argo Rollouts 트래픽 제어 확장 대비 |
+| 배포 전략 도구 (ch5.3) | Argo Rollouts | Flagger, Istio | 책 기본 흐름. ArgoCD와 같은 Argo 생태계, Rollout CRD로 B/G→Canary 전환 용이 |
 
 ## Terraform 인프라 (IaC)
 
@@ -77,8 +78,9 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | sha-b413368 (app v0.1.2) | 3.5부터 CI가 git SHA 태그 자동 부여. 앱 내부 version 상수는 v0.1.2 |
+| Notiflex 이미지 | sha-75efccb (app v0.2.0) | 3.5부터 CI가 git SHA 태그 자동 부여. 앱 내부 version 상수는 v0.2.0 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
+| Argo Rollouts | v1.9.1 | latest manifest 설치 (2026-07-19) |
 
 ## 현재 리소스
 
