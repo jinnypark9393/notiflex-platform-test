@@ -26,6 +26,7 @@
 | ch4 | 4.4 알림 | ✅ | 2026-07-13 | PodRestartTooMany PrometheusRule 로드 확인. 단, 가이드의 테스트(파드 삭제)로는 발화 불가 — 트러블슈팅 참조 |
 | ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API(regional external) + HTTPRoute + HealthCheckPolicy, 외부 IP 35.216.101.141에서 /health·/id 검증 |
 | ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts v1.9.1, Deployment→Rollout(B/G) 전환, v0.2.0 배포로 preview→30초 auto-promote e2e 검증 |
+| ch5 | 5.4 ADR | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설, 도구 선택 기록을 ADR-001~012로 변환 |
 | ch6 | 6.1 캐시 | ⬜ | | |
 | ch6 | 6.2 시크릿 관리 | ⬜ | | |
 | ch6 | 6.3 Canary 전환 | ⬜ | | |
