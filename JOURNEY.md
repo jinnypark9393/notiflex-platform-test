@@ -27,7 +27,7 @@
 | ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API(regional external) + HTTPRoute + HealthCheckPolicy, 외부 IP 35.216.101.141에서 /health·/id 검증 |
 | ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts v1.9.1, Deployment→Rollout(B/G) 전환, v0.2.0 배포로 preview→30초 auto-promote e2e 검증 |
 | ch5 | 5.4 ADR | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설, 도구 선택 기록을 ADR-001~012로 변환 |
-| ch6 | 6.1 캐시 | ⬜ | | |
+| ch6 | 6.1 캐시 | ✅ | 2026-07-19 | Valkey standalone(Helm, requests 최소화), 인메모리 카운터→INCR 전환(v0.3.0), replicas 1 축소 선행. 단일 replica라 Pod 간 공유는 6.3 canary(stable+canary 동시 기동)에서 검증 |
 | ch6 | 6.2 시크릿 관리 | ⬜ | | |
 | ch6 | 6.3 Canary 전환 | ⬜ | | |
 | ch7 | 7.2 멀티 노드풀 | ⬜ | | |
@@ -60,6 +60,7 @@
 | 로그 (ch4.3) | Loki + Fluent Bit | ELK | 책 기본 흐름. 라벨 인덱싱으로 경량, Grafana 통합. 최신 차트의 캐시/카나리/게이트웨이는 리소스 예산 때문에 비활성화 |
 | 외부 트래픽 (ch5.2) | Gateway API (GKE managed) | Ingress(NGINX 등) | 책 기본 흐름. GKE 네이티브 L7 LB, 역할 분리된 표준 리소스, 5.3 Argo Rollouts 트래픽 제어 확장 대비 |
 | 배포 전략 도구 (ch5.3) | Argo Rollouts | Flagger, Istio | 책 기본 흐름. ArgoCD와 같은 Argo 생태계, Rollout CRD로 B/G→Canary 전환 용이 |
+| 캐시 (ch6.1) | Valkey | Redis, Memcached | 책 기본 흐름. Redis 라이선스 변경 이후 오픈소스(BSD) 포크, Redis 프로토콜 호환, INCR로 전역 순차 ID |
 
 ## Terraform 인프라 (IaC)
 
@@ -79,7 +80,7 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | sha-75efccb (app v0.2.0) | 3.5부터 CI가 git SHA 태그 자동 부여. 앱 내부 version 상수는 v0.2.0 |
+| Notiflex 이미지 | sha-c3912e8 (app v0.3.0) | 3.5부터 CI가 git SHA 태그 자동 부여. Valkey 기반 ID 생성 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
 | Argo Rollouts | v1.9.1 | latest manifest 설치 (2026-07-19) |
 
@@ -87,7 +88,7 @@
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot) | 2 | notiflex-api (smb, replicas 2) |
+| default-pool | e2-medium (Spot) | 2 | notiflex-api (smb, replicas 1 — ch6 리소스 예산, ch7.2 후 2 복원), valkey-primary-0 |
 
 - 클러스터: `notiflex-cluster` (asia-northeast3-a, Zonal, Public)
 - Gateway API: `CHANNEL_STANDARD` 활성화
