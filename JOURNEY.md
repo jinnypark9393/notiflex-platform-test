@@ -29,7 +29,8 @@
 | ch5 | 5.4 ADR | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설, 도구 선택 기록을 ADR-001~012로 변환 |
 | ch6 | 6.1 캐시 | ✅ | 2026-07-19 | Valkey standalone(Helm, requests 최소화), 인메모리 카운터→INCR 전환(v0.3.0), replicas 1 축소 선행. 단일 replica라 Pod 간 공유는 6.3 canary(stable+canary 동시 기동)에서 검증 |
 | ch6 | 6.2 시크릿 관리 | ✅ | 2026-07-20 | Workload Identity(클러스터+노드풀) + Secret Manager CSI addon 활성화, valkey 비번을 Google Secret Manager에 저장, SecretProviderClass(provider=gke) 파일 마운트로 v0.3.1 배포·검증. WI principal에 secretAccessor 직접 바인딩(GCP SA 미생성) |
-| ch6 | 6.3 Canary 전환 | ⬜ | | |
+| ch6 | 6.3 Canary 전환 | ✅ | 2026-07-20 | rollout.yaml B/G→canary(20/50/80%), git push→Rollout 삭제→ArgoCD 재적용 순서. v0.3.2로 step 1→3→5→6 점진 승격 e2e 검증 |
+| ch6 | 6.4 아키텍처 스냅샷 | ✅ | 2026-07-20 | claude-context/architecture.md 신설(3층 지식구조·토폴로지·컴포넌트·파이프라인·GitOps·관측·ns 6+섹션) |
 | ch7 | 7.2 멀티 노드풀 | ⬜ | | |
 | ch7 | 7.3 App of Apps | ⬜ | | |
 | ch7 | 7.4 멀티테넌시 | ⬜ | | |
@@ -63,6 +64,8 @@
 | 캐시 (ch6.1) | Valkey | Redis, Memcached | 책 기본 흐름. Redis 라이선스 변경 이후 오픈소스(BSD) 포크, Redis 프로토콜 호환, INCR로 전역 순차 ID |
 | 시크릿 관리 (ch6.2) | Google Secret Manager + GKE managed CSI | K8s Secret, 오픈소스 CSI | 책 기본 흐름. 시크릿을 클러스터 밖 GSM에 저장, WI로 keyless 접근, CSI 파일 마운트. GKE managed는 addon 한 줄로 활성화(오픈소스 helm 설치 불필요) |
 | GitOps 관리 구조 (재편) | App of Apps + 앱별 폴더 | 단일 Application, ApplicationSet | 사용자 규칙. k8s/&lt;app&gt;/에 application.yaml + (manifests/ 또는 Helm values.yaml), root-app이 각 application.yaml만 include. 명령형 설치(helm/kubectl) 전부 선언형(ArgoCD)으로 이관 |
+| 배포 전략 전환 (ch6.3) | Argo Rollouts Canary | Blue/Green | 5장 B/G 경험 후 같은 Rollout CRD에서 strategy만 canary로 교체. 20→50→80% 점진 전환으로 위험도 최소화, 도구 변경 없이 전략만 진화 |
+| Valkey 배포 방식 (ch6.3 재작성) | 순수 매니페스트 (valkey/valkey:9.1) | bitnami helm 차트 | helm 차트의 랜덤 비번 재생성·existingSecret 볼륨 순환 회피. GSM 파일을 --requirepass로 직접 읽어 앱·서버 비번 단일 원천(GSM) 통일 |
 
 ## Terraform 인프라 (IaC)
 
@@ -83,10 +86,10 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | sha-cb2f09c (app v0.3.1) | 3.5부터 CI가 git SHA 태그 자동 부여. Valkey 비번을 Secret Manager 파일에서 읽음 |
+| Notiflex 이미지 | sha-dbc2ea9 (app v0.3.2) | 3.5부터 CI가 git SHA 태그 자동 부여. Canary로 승격된 최신 버전 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12). App of Apps 재편 후 root-app + 자식 6개 관리 |
 | Argo Rollouts | v1.9.1 (chart 2.41.1) | 2026-07-20 App of Apps 재편으로 helm chart(argo/argo-rollouts) 기반 ArgoCD 관리로 전환 |
-| Valkey | chart 6.2.0 | bitnami. App of Apps 재편으로 ArgoCD 관리(releaseName=valkey로 기존 릴리스 adopt) |
+| Valkey | valkey/valkey:9.1-alpine | ch6.3에서 bitnami helm→순수 매니페스트 재작성. GSM 파일 --requirepass, ArgoCD 관리 |
 | 관측 스택 | kube-prometheus-stack 87.15.1 / loki 7.0.0 / fluent-bit 2.6.0 | App of Apps 재편으로 ArgoCD Helm source 관리, values는 각 앱 폴더로 이동 |
 
 ## 현재 리소스
@@ -123,3 +126,7 @@
 | GitOps 재편 | App of Apps 전환 시 valkey Application의 helm releaseName 기본값(`notiflex-valkey`)이 기존 수동 릴리스(`valkey`)와 달라 adopt 안 되고 중복 StatefulSet 생성 | Application에 `helm.releaseName: valkey` 명시해 기존 `valkey-primary` 리소스명과 일치시켜 adopt. hard refresh 후 중복 `notiflex-valkey-*` prune됨 |
 | GitOps 재편 | App of Apps 전환 시 옛 `notiflex-smb` Application이 옛 경로(k8s/smb)를 가리켜 prune 위험 | `kubectl delete application notiflex-smb --cascade=orphan`으로 Application만 제거(리소스 보존) 후 root-app apply로 새 자식이 adopt |
 | GitOps 재편 | rollout.yaml을 k8s/smb/manifests로 이동 후 CI가 옛 경로 `k8s/smb/rollout.yaml`을 sed하려다 실패 위험 | ci.yaml의 4개 참조를 `k8s/smb/manifests/rollout.yaml`로 전역 치환. workflow 파일이라 `workflow` 스코프 PAT(store credential)로 push |
+| 6.3 | App of Apps adopt로 valkey helm이 비번을 랜덤 재생성 → GSM엔 옛 비번 남아 앱이 WRONGPASS로 CrashLoop | (1차) 현재 Valkey 실제 비번을 GSM 새 버전으로 동기화 + 파드 재시작으로 급한 불. (근본) bitnami helm을 버리고 순수 매니페스트로 재작성 — valkey가 GSM 파일을 --requirepass로 직접 읽어 앱과 단일 원천 공유 |
+| 6.3 | bitnami/공식 valkey helm 차트 모두 existingSecret을 볼륨 직접마운트 → CSI secretObjects 합성 Secret과 순환(Secret 없어서 마운트 실패) | 차트로는 GSM 파일 직접 읽기 불가(차트가 command를 안 열어줌). 순수 매니페스트에서 StatefulSet command를 직접 짜 `--requirepass "$(cat /mnt/gsm-secrets/valkey-password)"`로 해결 |
+| 6.3 | valkey 순수 매니페스트 apply 시 `StatefulSet spec Forbidden: updates to ... forbidden`(불변필드) | 옛 bitnami StatefulSet selector/volumeClaimTemplates가 불변이라 patch 불가. `kubectl delete statefulset valkey-primary`로 삭제 후 ArgoCD가 새 매니페스트로 재생성 |
+| 6.3 | 새 valkey KSA(`valkey`)가 GSM 접근 시 `secretmanager.versions.access denied` | 6.2에서 부여한 대상은 `default`/`valkey-primary` KSA뿐. 새 StatefulSet의 `valkey` KSA에도 WI principal로 secretAccessor 바인딩 필요 |

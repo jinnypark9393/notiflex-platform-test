@@ -93,3 +93,35 @@
 - CRD 기반: YAML 선언으로 배포 전략 정의, GitOps 호환
 - 점진적 진화: 5장 Blue/Green → 6장 Canary 전환 시 Rollout CRD만 수정
 - kubectl 플러그인으로 배포 진행 상태 실시간 모니터링
+
+## ADR-013: 캐시는 Valkey (6장)
+**시점**: 2026-07 / **결정**: Redis·Memcached·DragonflyDB 대신 Valkey로 Pod 간 ID 카운터를 공유한다
+**이유**:
+- BSD 라이선스: Redis의 SSPL 라이선스 제약(상용 제한) 없이 사용
+- Redis 프로토콜 호환: 기존 Redis 클라이언트·명령어(INCR 등) 그대로 사용
+- INCR + 영속성: ID 생성에 INCR이 필요하고 Pod 재시작 후 카운터 유지 필요 — Memcached는 영속성 없어 부적합
+- 경량: standalone 모드로 CPU 50m, Memory 64Mi
+
+## ADR-014: 시크릿은 Google Secret Manager + CSI (6장)
+**시점**: 2026-07 / **결정**: K8s Secret·Sealed Secrets·External Secrets Operator 대신 Google Secret Manager + GKE managed CSI Driver + Workload Identity로 시크릿을 관리한다
+**이유**:
+- GKE 네이티브: Workload Identity가 GKE와 GCP IAM을 직접 연결, SA 키 JSON 불필요
+- 단일 진실 원천: Secret Manager가 시크릿의 유일한 저장소, 앱과 Valkey가 같은 값을 CSI 파일로 읽음
+- addon 활성화: GKE managed CSI는 `--enable-secret-manager` 한 줄, 오픈소스 helm 설치 불필요
+- keyless: 장기 크레덴셜 미보관 (WIF와 동일 철학)
+
+## ADR-015: 배포 전략을 Canary로 전환 (6장)
+**시점**: 2026-07 / **결정**: Blue/Green에서 Canary(20→50→80→100%)로 전환한다. 도구는 Argo Rollouts 그대로, strategy 블록만 교체
+**이유**:
+- 위험도 최소화: 새 버전에 트래픽을 점진적으로 늘려 문제를 조기 발견
+- 빠른 abort: 이상 시 즉시 중단 가능, 롤백이 Blue/Green보다 세밀
+- 리소스 효율: Canary 1.2x vs Blue/Green 2x (전환 순간 파드 부담 완화)
+- 점진적 고도화: 도구 교체 없이 같은 Rollout CRD의 strategy만 진화
+
+## ADR-016: Valkey는 helm 차트 대신 순수 매니페스트 (6장)
+**시점**: 2026-07 / **결정**: bitnami/공식 valkey helm 차트를 버리고 valkey/valkey 순수 매니페스트로 배포한다. 비번은 GSM 파일을 `--requirepass`로 직접 읽는다
+**이유**:
+- 비번 단일 원천 실현: 앱과 Valkey 서버가 같은 GSM 파일을 CSI로 읽어 불일치(WRONGPASS) 원천 제거
+- helm 차트 한계 회피: 차트는 비번을 K8s Secret으로만 참조 → CSI secretObjects 합성과 existingSecret 볼륨이 순환
+- 랜덤 비번 방지: helm이 재배포마다 비번을 새로 생성하던 문제 제거
+- 단순성: StatefulSet + Service + SecretProviderClass만으로 충분, bitnami의 configmap 3개·PDB·NetworkPolicy 등 불필요
