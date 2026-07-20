@@ -1,0 +1,26 @@
+# Valkey 캐시 — bitnami Helm 차트 소스 + 로컬 values.yaml (6.1).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-valkey
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # values.yaml을 Git repo에서 참조하기 위한 ref 소스 (매니페스트는 렌더하지 않음).
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://charts.bitnami.com/bitnami
+      chart: valkey
+      targetRevision: 6.2.0
+      helm:
+        valueFiles:
+          - $values/k8s/valkey/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: notiflex
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,11 @@
+# Argo Rollouts (argo/argo-rollouts 2.41.1 = app v1.9.1) — Blue/Green·Canary 배포 컨트롤러 (5.3).
+# 컨트롤러만 필요하고 대시보드는 쓰지 않는다. e2-medium 예산에 맞춰 requests 최소화.
+controller:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+dashboard:
+  enabled: false

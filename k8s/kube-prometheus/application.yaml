@@ -1,0 +1,35 @@
+# kube-prometheus-stack — Helm 차트(Prometheus/Grafana/Alertmanager) + 로컬 CR 매니페스트
+# (Notiflex 대시보드·Loki datasource·PodRestart 알림 룰)을 함께 배포하는 multi-source 앱 (4.2/4.4).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-kube-prometheus
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 87.15.1
+      helm:
+        releaseName: kube-prometheus
+        valueFiles:
+          - $values/k8s/kube-prometheus/values.yaml
+    # 대시보드/데이터소스/알림 룰 CR (sidecar가 자동 로드).
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      path: k8s/kube-prometheus/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # kube-prometheus-stack CRD가 커서 어노테이션 한계 초과 → ServerSideApply.
+      - ServerSideApply=true

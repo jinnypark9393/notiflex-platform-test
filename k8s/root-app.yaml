@@ -1,0 +1,26 @@
+# App of Apps 부모 — k8s/ 하위 각 앱 폴더의 application.yaml만 수집해 자식 Application을 등록한다.
+# 실제 워크로드 리소스는 각 앱의 manifests/(또는 Helm 차트)에 있고, 부모는 여기서
+# application.yaml만 include하므로 자기참조가 생기지 않는다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+    targetRevision: main
+    path: k8s
+    directory:
+      recurse: true
+      # 각 앱 폴더의 application.yaml만 부모의 배포 대상으로 삼는다.
+      # (manifests/의 실제 리소스, values.yaml, root-app.yaml 자신은 제외 → 자기참조 방지)
+      include: '{smb,valkey,argo-rollouts,loki,fluent-bit,kube-prometheus}/application.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

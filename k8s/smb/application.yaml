@@ -1,3 +1,4 @@
+# Notiflex SMB 테넌트 앱 — 순수 매니페스트(k8s/smb/manifests) 소스.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
     targetRevision: main
-    path: k8s/smb
+    path: k8s/smb/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: notiflex

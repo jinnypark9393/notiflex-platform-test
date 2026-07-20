@@ -1,0 +1,13 @@
+# Valkey (bitnami/valkey 6.2.0) — Pod 간 ID 카운터 공유용 캐시 (6.1).
+# e2-medium 예산에 맞춰 standalone + requests 최소화. resourcesPreset은 비활성화하고
+# 직접 지정한다(기본 preset이 과도한 CPU를 요청해 Pending 유발).
+architecture: standalone
+primary:
+  resourcesPreset: none
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
