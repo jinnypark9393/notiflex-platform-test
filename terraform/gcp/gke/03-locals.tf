@@ -10,12 +10,21 @@ locals {
       # Gateway API 채널. 클러스터 생성 시점에 켜둔다 (5장에서 사용, 책 2.5장 지침).
       gateway_api_channel = "CHANNEL_STANDARD"
 
+      # Workload Identity. 6.2 Secret Manager CSI가 GCP SA 없이 KSA로 시크릿에
+      # 접근하기 위해 필요하다. 클러스터+노드풀 양쪽 활성화가 전제.
+      workload_identity = true
+
+      # Google Secret Manager CSI addon (6.2). Valkey 비밀번호를 파일로 마운트한다.
+      secret_manager = true
+
       node_pools = {
         default-pool = {
           machine_type = "e2-medium"
-          node_count   = 2 # 실습 재개: 노드 2개 복원 (2026-07-12)
+          node_count   = 3 # 6.2: WI/CSI DaemonSet(노드당 ~220m) 추가로 B/G 파드 스케줄 여유 확보 위해 3개 (2026-07-20)
           disk_size_gb = 30
           spot         = true
+          # 6.2: WI를 노드에서 쓰려면 메타데이터 서버 모드를 GKE_METADATA로.
+          workload_metadata = "GKE_METADATA"
         }
       }
     }

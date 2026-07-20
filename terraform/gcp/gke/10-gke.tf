@@ -22,6 +22,22 @@ resource "google_container_cluster" "this" {
       channel = gateway_api_config.value
     }
   }
+
+  # Workload Identity (6.2) — locals의 workload_identity가 true일 때만.
+  dynamic "workload_identity_config" {
+    for_each = try(each.value.workload_identity, false) ? [1] : []
+    content {
+      workload_pool = "${var.project_id}.svc.id.goog"
+    }
+  }
+
+  # Google Secret Manager CSI addon (6.2) — locals의 secret_manager가 true일 때만.
+  dynamic "secret_manager_config" {
+    for_each = try(each.value.secret_manager, false) ? [1] : []
+    content {
+      enabled = true
+    }
+  }
 }
 
 # 클러스터 × 노드풀을 평탄화하여 노드풀 리소스를 생성한다.
@@ -51,5 +67,13 @@ resource "google_container_node_pool" "this" {
 
     # 노드(GCE 인스턴스) 공통 라벨 (apps 폴더와 통일).
     resource_labels = local.common_labels
+
+    # Workload Identity 메타데이터 서버 (6.2) — pool.workload_metadata가 있을 때만.
+    dynamic "workload_metadata_config" {
+      for_each = try(each.value.pool.workload_metadata, null) != null ? [each.value.pool.workload_metadata] : []
+      content {
+        mode = workload_metadata_config.value
+      }
+    }
   }
 }
