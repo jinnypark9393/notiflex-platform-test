@@ -11,6 +11,10 @@ spec:
     - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
       targetRevision: main
       ref: values
+    # SecretProviderClass 등 순수 매니페스트 (GSM→valkey-auth 합성, ch6.3).
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      path: k8s/valkey/manifests
     - repoURL: https://charts.bitnami.com/bitnami
       chart: valkey
       targetRevision: 6.2.0

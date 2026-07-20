@@ -2,6 +2,13 @@
 # e2-medium 예산에 맞춰 standalone + requests 최소화. resourcesPreset은 비활성화하고
 # 직접 지정한다(기본 preset이 과도한 CPU를 요청해 Pending 유발).
 architecture: standalone
+
+# ch6.3 재발방지: helm이 비번을 랜덤 생성하지 않고, GSM에서 CSI로 합성한 Secret을 참조한다.
+# valkey-auth Secret은 primary.extraVolumes의 CSI 마운트가 트리거해 생성된다(manifests/secretproviderclass.yaml).
+auth:
+  existingSecret: valkey-auth
+  existingSecretPasswordKey: valkey-password
+
 primary:
   resourcesPreset: none
   resources:
@@ -11,3 +18,15 @@ primary:
     limits:
       cpu: 200m
       memory: 128Mi
+  # GSM valkey-password를 CSI로 마운트 → SecretProviderClass의 secretObjects가 valkey-auth를 합성.
+  extraVolumes:
+    - name: gsm-secrets
+      csi:
+        driver: secrets-store-gke.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: valkey-secrets
+  extraVolumeMounts:
+    - name: gsm-secrets
+      mountPath: /mnt/gsm-secrets
+      readOnly: true
