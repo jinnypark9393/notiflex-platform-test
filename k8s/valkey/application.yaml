@@ -15,6 +15,9 @@ spec:
       chart: valkey
       targetRevision: 6.2.0
       helm:
+        # 기존 수동 helm 릴리스(valkey)와 이름을 맞춰야 valkey-primary 등 리소스명이
+        # 동일하게 렌더되어 앱의 VALKEY_ADDR(valkey-primary) 변경 없이 adopt된다.
+        releaseName: valkey
         valueFiles:
           - $values/k8s/valkey/values.yaml
   destination:
