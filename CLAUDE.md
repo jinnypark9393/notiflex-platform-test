@@ -12,9 +12,11 @@
 - **컨테이너**: scratch 베이스 이미지 (최소 크기, 공격 표면 최소화)
 - **인프라**: GKE Standard (Zonal), Spot VM
 - **CI**: GitHub Actions (`.github/workflows/`) — 빌드·테스트·이미지 푸시를 GitHub Actions로 실행한다
-- **GitOps**: ArgoCD (예정)
-- **관측 가능성**: Prometheus, Grafana, Loki, Fluent Bit, Tempo (예정)
-- **배포 전략**: Rolling → Blue/Green → Canary (점진 진화 예정)
+- **GitOps**: ArgoCD (App of Apps — `k8s/` 아래 앱별 Application, root-app이 관리)
+- **캐시**: Valkey (Pod 간 ID 카운터 공유, ch6.1)
+- **시크릿**: Google Secret Manager + GKE managed CSI, Workload Identity (ch6.2)
+- **관측 가능성**: Prometheus, Grafana, Loki, Fluent Bit (Tempo는 8장 예정)
+- **배포 전략**: Rolling → Blue/Green(현재) → Canary(ch6.3 예정)
 
 ## GCP 설정
 
@@ -58,8 +60,14 @@ asia-northeast3-docker.pkg.dev/project-fea698e1-5762-48a2-918/notiflex
 notiflex-platform-test/
 ├── CLAUDE.md          # 이 파일 — 프로젝트 컨텍스트
 ├── app/               # Go 애플리케이션
-├── k8s/
-│   └── smb/           # Kubernetes 매니페스트 (SMB 테넌트)
+├── k8s/               # GitOps 리소스 (App of Apps — 아래 규칙 참조)
+│   ├── root-app.yaml  # 부모 App of Apps (각 앱 application.yaml만 include)
+│   ├── smb/           # notiflex-api (application.yaml + manifests/)
+│   ├── valkey/        # Valkey 캐시 (application.yaml + values.yaml, Helm source)
+│   ├── argo-rollouts/ # Argo Rollouts 컨트롤러 (application.yaml + values.yaml)
+│   ├── kube-prometheus/ # Prometheus 스택 + 대시보드/알림 CR (multi-source)
+│   ├── loki/          # Loki (application.yaml + values.yaml)
+│   └── fluent-bit/    # Fluent Bit (application.yaml + values.yaml)
 ├── terraform/
 │   └── gcp/
 │       ├── gke/       # GKE 클러스터 (IaC)
@@ -67,6 +75,20 @@ notiflex-platform-test/
 └── .github/
     └── workflows/     # CI 파이프라인 (GitHub Actions)
 ```
+
+## GitOps 구조 규칙 (k8s/) — 필수 준수
+
+이 저장소의 모든 Kubernetes 리소스는 **App of Apps 패턴**으로 ArgoCD가 관리한다. 명령형 설치(`kubectl apply`, `helm install`)로 클러스터를 직접 바꾸지 않는다.
+
+1. **앱 단위 폴더**: `k8s/` 하위는 앱마다 폴더 하나(`k8s/<app>/`). 여러 앱을 한 폴더에 섞지 않는다.
+2. **각 앱 폴더에 `application.yaml`**: 그 앱의 ArgoCD Application CR을 앱 폴더 안에 둔다. Application 이름은 `notiflex-<app>`.
+3. **source 종류에 따라**:
+   - **순수 매니페스트 앱**(smb 등): 리소스를 `k8s/<app>/manifests/`에 두고, `application.yaml`의 `source.path`는 `k8s/<app>/manifests`를 가리킨다. (application.yaml과 리소스를 분리해 자기참조 방지)
+   - **Helm 차트 앱**(valkey, argo-rollouts, loki, fluent-bit, kube-prometheus): `k8s/<app>/values.yaml`을 두고, `application.yaml`은 multi-source로 Git repo(ref: values) + 원격 Helm 차트를 조합해 `$values/k8s/<app>/values.yaml`을 참조한다.
+4. **부모 App of Apps** (`k8s/root-app.yaml`): `source.path: k8s` + `directory.recurse: true` + `include: '{앱들}/application.yaml'`로 **각 앱의 application.yaml만** 수집한다. manifests/·values.yaml·root-app.yaml 자신은 include하지 않는다 (자기참조 방지).
+5. **namespace는 매니페스트/Application에서 지정**: 앱마다 대상 namespace가 다르므로(smb→notiflex, monitoring 계열→monitoring, argo-rollouts→argo-rollouts) 각 application.yaml의 `destination.namespace`에 명시하고 필요 시 `CreateNamespace=true`.
+6. **Helm 릴리스 adopt**: 기존 수동 helm 릴리스를 ArgoCD로 이관할 때는 `application.yaml`의 `helm.releaseName`을 기존 릴리스명과 일치시켜 리소스명 충돌 없이 adopt한다.
+7. **CI 경로**: `.github/workflows/ci.yaml`의 이미지 태그 sed 대상은 `k8s/smb/manifests/rollout.yaml`. rollout 위치가 바뀌면 CI 참조도 함께 갱신한다.
 
 ## Terraform (terraform/gcp/)
 

@@ -28,7 +28,7 @@
 | ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts v1.9.1, Deployment→Rollout(B/G) 전환, v0.2.0 배포로 preview→30초 auto-promote e2e 검증 |
 | ch5 | 5.4 ADR | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설, 도구 선택 기록을 ADR-001~012로 변환 |
 | ch6 | 6.1 캐시 | ✅ | 2026-07-19 | Valkey standalone(Helm, requests 최소화), 인메모리 카운터→INCR 전환(v0.3.0), replicas 1 축소 선행. 단일 replica라 Pod 간 공유는 6.3 canary(stable+canary 동시 기동)에서 검증 |
-| ch6 | 6.2 시크릿 관리 | ⬜ | | |
+| ch6 | 6.2 시크릿 관리 | ✅ | 2026-07-20 | Workload Identity(클러스터+노드풀) + Secret Manager CSI addon 활성화, valkey 비번을 Google Secret Manager에 저장, SecretProviderClass(provider=gke) 파일 마운트로 v0.3.1 배포·검증. WI principal에 secretAccessor 직접 바인딩(GCP SA 미생성) |
 | ch6 | 6.3 Canary 전환 | ⬜ | | |
 | ch7 | 7.2 멀티 노드풀 | ⬜ | | |
 | ch7 | 7.3 App of Apps | ⬜ | | |
@@ -61,6 +61,8 @@
 | 외부 트래픽 (ch5.2) | Gateway API (GKE managed) | Ingress(NGINX 등) | 책 기본 흐름. GKE 네이티브 L7 LB, 역할 분리된 표준 리소스, 5.3 Argo Rollouts 트래픽 제어 확장 대비 |
 | 배포 전략 도구 (ch5.3) | Argo Rollouts | Flagger, Istio | 책 기본 흐름. ArgoCD와 같은 Argo 생태계, Rollout CRD로 B/G→Canary 전환 용이 |
 | 캐시 (ch6.1) | Valkey | Redis, Memcached | 책 기본 흐름. Redis 라이선스 변경 이후 오픈소스(BSD) 포크, Redis 프로토콜 호환, INCR로 전역 순차 ID |
+| 시크릿 관리 (ch6.2) | Google Secret Manager + GKE managed CSI | K8s Secret, 오픈소스 CSI | 책 기본 흐름. 시크릿을 클러스터 밖 GSM에 저장, WI로 keyless 접근, CSI 파일 마운트. GKE managed는 addon 한 줄로 활성화(오픈소스 helm 설치 불필요) |
+| GitOps 관리 구조 (재편) | App of Apps + 앱별 폴더 | 단일 Application, ApplicationSet | 사용자 규칙. k8s/&lt;app&gt;/에 application.yaml + (manifests/ 또는 Helm values.yaml), root-app이 각 application.yaml만 include. 명령형 설치(helm/kubectl) 전부 선언형(ArgoCD)으로 이관 |
 
 ## Terraform 인프라 (IaC)
 
@@ -71,6 +73,7 @@
 | 리소스 정의 방식 | `03-locals.tf`의 map + `for_each` (gke: `gke_definitions`, apps: `app_definitions`) |
 | 공통 라벨 | `project=notiflex`, `managed-by=terraform` (전 폴더 통일) |
 | 관리 리소스 | `google_container_cluster`, `google_container_node_pool`, `google_artifact_registry_repository` |
+| ch6.2 반영 (2026-07-20) | gke 클러스터에 `workload_identity_config`, `secret_manager_config` + 노드풀 `workload_metadata_config(GKE_METADATA)`, `node_count 2→3`. gcloud 수동 변경분을 IaC로 정합화(`plan` no-change 확인). **6.2 클러스터 변경은 gcloud로 먼저 적용 후 코드 반영했으므로, 재현 시엔 코드→apply 순서 권장** |
 
 ## 현재 버전
 
@@ -80,19 +83,23 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | sha-c3912e8 (app v0.3.0) | 3.5부터 CI가 git SHA 태그 자동 부여. Valkey 기반 ID 생성 |
-| ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12) |
-| Argo Rollouts | v1.9.1 | latest manifest 설치 (2026-07-19) |
+| Notiflex 이미지 | sha-cb2f09c (app v0.3.1) | 3.5부터 CI가 git SHA 태그 자동 부여. Valkey 비번을 Secret Manager 파일에서 읽음 |
+| ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12). App of Apps 재편 후 root-app + 자식 6개 관리 |
+| Argo Rollouts | v1.9.1 (chart 2.41.1) | 2026-07-20 App of Apps 재편으로 helm chart(argo/argo-rollouts) 기반 ArgoCD 관리로 전환 |
+| Valkey | chart 6.2.0 | bitnami. App of Apps 재편으로 ArgoCD 관리(releaseName=valkey로 기존 릴리스 adopt) |
+| 관측 스택 | kube-prometheus-stack 87.15.1 / loki 7.0.0 / fluent-bit 2.6.0 | App of Apps 재편으로 ArgoCD Helm source 관리, values는 각 앱 폴더로 이동 |
 
 ## 현재 리소스
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot) | 2 | notiflex-api (smb, replicas 1 — ch6 리소스 예산, ch7.2 후 2 복원), valkey-primary-0 |
+| default-pool | e2-medium (Spot) | 3 | notiflex-api (smb, replicas 1), valkey-primary-0, 관측 스택, CSI/WI DaemonSet |
 
 - 클러스터: `notiflex-cluster` (asia-northeast3-a, Zonal, Public)
-- Gateway API: `CHANNEL_STANDARD` 활성화
+- Gateway API: `CHANNEL_STANDARD` 활성화 / Workload Identity·Secret Manager CSI 활성화(ch6.2)
+- 노드 3대로 증설(2026-07-20): ch6.2에서 WI 메타데이터 서버(100m/노드)+CSI DaemonSet(120m/노드)이 추가되며 B/G 파드가 CPU 부족으로 Pending → 노드 1대 추가로 해소. Terraform node_count 3으로 정합화
 - kubectl 컨텍스트: `gke-sysnet4admin_book_gitaiops`
+- gcloud 실습 계정: named config `book-gitaiops`(account=jinnypark9393cc@gmail.com). 실습 명령은 `CLOUDSDK_ACTIVE_CONFIG_NAME=book-gitaiops` + `unset GOOGLE_APPLICATION_CREDENTIALS`
 
 ## 트러블슈팅 이력
 
@@ -110,3 +117,9 @@
 | 3.5 | 가이드는 "manifest push 403 방지에 repo 레벨 Workflow permissions도 write 필수"라 하나, 실측 결과 **repo 기본값 read 유지 + ci.yaml `permissions: contents: write` 명시만으로 push 성공** | 워크플로우 레벨 permissions가 repo 기본값을 덮어씀 (GitHub 문서와 일치). repo 설정 변경 불필요 — 최소권한 유지 |
 | 5.2 | 가이드는 "proxy-only 서브넷을 GKE가 자동 생성"이라 하나, 실측 결과 자동 생성되지 않고 Gateway SYNC 이벤트에 `An active proxy-only subnetwork is required` 에러 발생 | `gcloud compute networks subnets create proxy-only-subnet --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE --range=172.16.0.0/23`으로 수동 생성 후 1~2분 내 IP 할당·Programmed=True |
 | 3.3 | ArgoCD가 새 커밋을 수 분간 감지 못함 (`sync.revision`이 이전 커밋에 고정, 폴링 3분 경과 후에도 미갱신) | 가이드의 트러블슈팅은 NetworkPolicy egress 차단을 지목하나, 실제 repo-server NP는 **Ingress 전용**이라 무관. `kubectl annotate application notiflex-smb -n argocd argocd.argoproj.io/refresh=hard --overwrite`로 즉시 refresh하면 해결 (NP 삭제 불필요) |
+| 6.1 | Valkey 앱 기동 시 Valkey Service DNS/기동 지연으로 3~4회 `context deadline exceeded` | 앱에 연결 재시도 로직(10회/3초) 넣어 해결. 재시도 없으면 CrashLoopBackOff. 가드레일 예고와 일치 |
+| 6.2 | WI/CSI 활성화 후 노드당 CPU 220m 추가 소모(WI 메타데이터 서버 100m + CSI DaemonSet 120m)로 B/G 새 파드가 13시간 Pending(`Insufficient cpu`) | 관측 스택 requests 5m/1m 축소만으론 부족. **노드 3대로 증설**(Terraform node_count 3 정합화)해 해소. 가드레일은 "Loki/FluentBit 임시 제거"를 제시하나 이미 1m라 효과 없음 → 실측상 노드 추가가 정답 |
+| 6.2 | scratch 이미지라 `kubectl exec ... ls /mnt/secrets`가 `executable file not found` | 셸/바이너리 없는 scratch 특성. CSI 마운트 검증은 exec 대신 앱 동작(/id가 Valkey 연결 성공 = 비번 파일 정상 읽음)으로 확인 |
+| GitOps 재편 | App of Apps 전환 시 valkey Application의 helm releaseName 기본값(`notiflex-valkey`)이 기존 수동 릴리스(`valkey`)와 달라 adopt 안 되고 중복 StatefulSet 생성 | Application에 `helm.releaseName: valkey` 명시해 기존 `valkey-primary` 리소스명과 일치시켜 adopt. hard refresh 후 중복 `notiflex-valkey-*` prune됨 |
+| GitOps 재편 | App of Apps 전환 시 옛 `notiflex-smb` Application이 옛 경로(k8s/smb)를 가리켜 prune 위험 | `kubectl delete application notiflex-smb --cascade=orphan`으로 Application만 제거(리소스 보존) 후 root-app apply로 새 자식이 adopt |
+| GitOps 재편 | rollout.yaml을 k8s/smb/manifests로 이동 후 CI가 옛 경로 `k8s/smb/rollout.yaml`을 sed하려다 실패 위험 | ci.yaml의 4개 참조를 `k8s/smb/manifests/rollout.yaml`로 전역 치환. workflow 파일이라 `workflow` 스코프 PAT(store credential)로 push |
