@@ -1,0 +1,81 @@
+# Valkey standalone — 공식 valkey/valkey 이미지 기반 순수 매니페스트 (ch6.3).
+# 비밀번호는 GSM에서 CSI로 마운트한 파일(/mnt/gsm-secrets/valkey-password)을 시작 시 읽어
+# --requirepass로 넘긴다. helm 차트를 쓰지 않으므로 랜덤 비번 재생성·existingSecret 순환이 없다.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey-primary
+  namespace: notiflex
+  labels:
+    app.kubernetes.io/name: valkey
+    tenant: smb
+spec:
+  serviceName: valkey-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: valkey
+        tenant: smb
+    spec:
+      # GSM 접근용 KSA. WI principal(ns/notiflex/sa/valkey)에 secretAccessor를 부여해 둔다.
+      serviceAccountName: valkey
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      containers:
+        - name: valkey
+          image: valkey/valkey:9.1-alpine
+          # 마운트된 GSM 파일에서 비번을 읽어 requirepass로 기동. 파일 개행 방지 위해 tr -d 처리.
+          command:
+            - sh
+            - -c
+            - exec valkey-server --requirepass "$(tr -d '\n' < /mnt/gsm-secrets/valkey-password)" --appendonly yes --dir /data
+          ports:
+            - name: valkey
+              containerPort: 6379
+          volumeMounts:
+            - name: gsm-secrets
+              mountPath: /mnt/gsm-secrets
+              readOnly: true
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli -a "$(tr -d '\n' < /mnt/gsm-secrets/valkey-password)" ping | grep -q PONG
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: valkey
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: gsm-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: valkey-secrets
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

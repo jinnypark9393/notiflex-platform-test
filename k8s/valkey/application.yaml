@@ -1,4 +1,5 @@
-# Valkey 캐시 — bitnami Helm 차트 소스 + 로컬 values.yaml (6.1).
+# Valkey 캐시 — 순수 매니페스트 소스 (ch6.3, helm 제거).
+# GSM 파일을 직접 읽는 StatefulSet/Service/SecretProviderClass를 k8s/valkey/manifests에 둔다.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -6,24 +7,10 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  sources:
-    # values.yaml을 Git repo에서 참조하기 위한 ref 소스 (매니페스트는 렌더하지 않음).
-    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
-      targetRevision: main
-      ref: values
-    # SecretProviderClass 등 순수 매니페스트 (GSM→valkey-auth 합성, ch6.3).
-    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
-      targetRevision: main
-      path: k8s/valkey/manifests
-    - repoURL: https://charts.bitnami.com/bitnami
-      chart: valkey
-      targetRevision: 6.2.0
-      helm:
-        # 기존 수동 helm 릴리스(valkey)와 이름을 맞춰야 valkey-primary 등 리소스명이
-        # 동일하게 렌더되어 앱의 VALKEY_ADDR(valkey-primary) 변경 없이 adopt된다.
-        releaseName: valkey
-        valueFiles:
-          - $values/k8s/valkey/values.yaml
+  source:
+    repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+    targetRevision: main
+    path: k8s/valkey/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: notiflex
