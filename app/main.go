@@ -8,19 +8,26 @@ import (
 	"os"
 	"time"
 
+	"github.com/IBM/sarama"
 	valkey "github.com/valkey-io/valkey-go"
 )
 
 // version은 이 바이너리의 릴리스 버전이다.
 // 이미지 태그는 CI가 git SHA(sha-<7자리>) 기반으로 자동 부여한다 (3.5부터).
-const version = "v0.3.2"
+const version = "v0.4.0"
 
 // idKey는 /id 카운터를 저장하는 Valkey 키이다. 모든 Pod이 같은 키를 INCR하므로
 // 인메모리 카운터와 달리 Pod 수와 무관하게 전역 순차 ID가 보장된다.
 const idKey = "notiflex:id"
 
+// notificationsTopic은 /id 생성 이벤트를 발행하는 Kafka 토픽이다 (8.1).
+const notificationsTopic = "notifications"
+
 // valkeyClient는 모든 핸들러가 공유하는 Valkey 커넥션이다.
 var valkeyClient valkey.Client
+
+// kafkaProducer는 notifications 토픽에 이벤트를 발행한다. Kafka 미설정 시 nil이다.
+var kafkaProducer sarama.SyncProducer
 
 // podName은 이 Pod의 이름이다. Downward API로 주입된 POD_NAME 환경변수에서 읽는다.
 var podName = func() string {
@@ -50,10 +57,28 @@ func idHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "id backend unavailable"})
 		return
 	}
+	// 8.1: ID 생성 이벤트를 Kafka에 발행한다(비동기 후처리 파이프라인의 진입점).
+	// Kafka가 없거나 발행에 실패해도 /id 응답 자체는 성공으로 처리한다(캐시가 진실 원천).
+	publishNotification(id)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":           id,
 		"generated_by": podName,
 	})
+}
+
+// publishNotification은 생성된 ID를 notifications 토픽에 발행한다.
+func publishNotification(id int64) {
+	if kafkaProducer == nil {
+		return
+	}
+	payload, _ := json.Marshal(map[string]any{"id": id, "generated_by": podName})
+	msg := &sarama.ProducerMessage{
+		Topic: notificationsTopic,
+		Value: sarama.ByteEncoder(payload),
+	}
+	if _, _, err := kafkaProducer.SendMessage(msg); err != nil {
+		log.Printf("kafka publish failed: %v", err)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -84,6 +109,34 @@ func connectValkey(addr, password string) (valkey.Client, error) {
 	return nil, err
 }
 
+// newKafkaConfig는 Kafka 4.x 브로커에 맞춘 sarama 설정을 만든다.
+func newKafkaConfig() *sarama.Config {
+	cfg := sarama.NewConfig()
+	cfg.Version = sarama.V4_1_0_0
+	cfg.Producer.RequiredAcks = sarama.WaitForAll
+	cfg.Producer.Return.Successes = true
+	return cfg
+}
+
+// startConsumer는 백그라운드에서 notifications 토픽을 구독해 수신 메시지를 로그로 출력한다.
+func startConsumer(broker string) {
+	consumer, err := sarama.NewConsumer([]string{broker}, newKafkaConfig())
+	if err != nil {
+		log.Printf("kafka consumer 생성 실패: %v", err)
+		return
+	}
+	// 단일 파티션(0)만 구독한다. 실습 규모에서는 충분하다.
+	pc, err := consumer.ConsumePartition(notificationsTopic, 0, sarama.OffsetNewest)
+	if err != nil {
+		log.Printf("kafka partition 구독 실패: %v", err)
+		return
+	}
+	log.Printf("kafka consumer 시작: topic=%s", notificationsTopic)
+	for msg := range pc.Messages() {
+		log.Printf("kafka 수신: %s", string(msg.Value))
+	}
+}
+
 func main() {
 	addr := os.Getenv("VALKEY_ADDR")
 	if addr == "" {
@@ -106,6 +159,19 @@ func main() {
 	}
 	defer client.Close()
 	valkeyClient = client
+
+	// 8.1: Kafka는 선택적. KAFKA_BROKER가 있으면 Producer/Consumer를 기동한다.
+	if broker := os.Getenv("KAFKA_BROKER"); broker != "" {
+		producer, err := sarama.NewSyncProducer([]string{broker}, newKafkaConfig())
+		if err != nil {
+			log.Printf("kafka producer 생성 실패(발행 없이 계속): %v", err)
+		} else {
+			kafkaProducer = producer
+			defer producer.Close()
+			go startConsumer(broker)
+			log.Printf("kafka 연결됨: broker=%s", broker)
+		}
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)

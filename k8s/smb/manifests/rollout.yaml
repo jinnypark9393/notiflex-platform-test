@@ -53,6 +53,9 @@ spec:
             # ch6.2: K8s Secret 참조 대신 Google Secret Manager를 CSI로 파일 마운트해 읽는다.
             - name: VALKEY_PASSWORD_FILE
               value: /mnt/secrets/valkey-password
+            # 8.1: Kafka 브로커(cross-ns). /id 이벤트를 notifications 토픽에 발행하고 구독한다.
+            - name: KAFKA_BROKER
+              value: notiflex-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
           volumeMounts:
             - name: secrets
               mountPath: /mnt/secrets
