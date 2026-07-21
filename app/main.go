@@ -14,7 +14,7 @@ import (
 
 // version은 이 바이너리의 릴리스 버전이다.
 // 이미지 태그는 CI가 git SHA(sha-<7자리>) 기반으로 자동 부여한다 (3.5부터).
-const version = "v0.4.0"
+const version = "v0.4.1"
 
 // idKey는 /id 카운터를 저장하는 Valkey 키이다. 모든 Pod이 같은 키를 INCR하므로
 // 인메모리 카운터와 달리 Pod 수와 무관하게 전역 순차 ID가 보장된다.
@@ -118,22 +118,32 @@ func newKafkaConfig() *sarama.Config {
 	return cfg
 }
 
-// startConsumer는 백그라운드에서 notifications 토픽을 구독해 수신 메시지를 로그로 출력한다.
+// startConsumer는 백그라운드에서 notifications 토픽의 모든 파티션을 구독해 수신
+// 메시지를 로그로 출력한다. 토픽이 다중 파티션(3)이라 파티션 0만 구독하면 다른
+// 파티션에 발행된 메시지를 놓치므로, 파티션 목록을 받아 각각 구독한다.
 func startConsumer(broker string) {
 	consumer, err := sarama.NewConsumer([]string{broker}, newKafkaConfig())
 	if err != nil {
 		log.Printf("kafka consumer 생성 실패: %v", err)
 		return
 	}
-	// 단일 파티션(0)만 구독한다. 실습 규모에서는 충분하다.
-	pc, err := consumer.ConsumePartition(notificationsTopic, 0, sarama.OffsetNewest)
+	partitions, err := consumer.Partitions(notificationsTopic)
 	if err != nil {
-		log.Printf("kafka partition 구독 실패: %v", err)
+		log.Printf("kafka partition 목록 조회 실패: %v", err)
 		return
 	}
-	log.Printf("kafka consumer 시작: topic=%s", notificationsTopic)
-	for msg := range pc.Messages() {
-		log.Printf("kafka 수신: %s", string(msg.Value))
+	log.Printf("kafka consumer 시작: topic=%s partitions=%v", notificationsTopic, partitions)
+	for _, p := range partitions {
+		pc, err := consumer.ConsumePartition(notificationsTopic, p, sarama.OffsetNewest)
+		if err != nil {
+			log.Printf("kafka partition %d 구독 실패: %v", p, err)
+			continue
+		}
+		go func(pc sarama.PartitionConsumer) {
+			for msg := range pc.Messages() {
+				log.Printf("kafka 수신: %s", string(msg.Value))
+			}
+		}(pc)
 	}
 }
 
