@@ -1,0 +1,23 @@
+# Grafana Tempo (chart 1.24.4, single binary) — 8.2 분산 트레이싱.
+# ops-pool에 배치, OTLP gRPC(4317) receiver 활성화. 최소 리소스.
+tempo:
+  # OTLP gRPC receiver를 켜서 앱의 OpenTelemetry SDK가 트레이스를 보낼 수 있게 한다.
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ops-pool 배치 (default-pool은 CPU 여유 없음). taint가 없어 nodeSelector로 충분.
+nodeSelector:
+  cloud.google.com/gke-nodepool: ops-pool
+
+# 단일 바이너리 모드 최소 구성. 영속성은 실습이라 비활성(emptyDir).
+persistence:
+  enabled: false

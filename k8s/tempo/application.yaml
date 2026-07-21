@@ -1,0 +1,29 @@
+# Grafana Tempo — Helm 차트 소스 + 로컬 values.yaml (8.2).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-tempo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # 플랫폼(관측)
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: tempo
+      targetRevision: 1.24.4
+      helm:
+        valueFiles:
+          - $values/k8s/tempo/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
