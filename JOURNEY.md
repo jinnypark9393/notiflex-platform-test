@@ -34,6 +34,7 @@
 | ch7 | 7.2 멀티 노드풀 | ✅ | 2026-07-21 | api/worker/ops 노드풀 Terraform 생성(pd-standard, GKE_METADATA), smb·enterprise rollout nodeSelector=api-pool로 배치 검증 |
 | ch7 | 7.3 App of Apps + Sync Wave | ✅ | 2026-07-21 | App of Apps는 6장 재편으로 기구축. sync-wave 어노테이션 추가(0 CRD/1 플랫폼/2 앱). root-app.yaml 변경은 kubectl apply로 반영(부모는 자기 미관리) |
 | ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-21 | k8s/enterprise/ 테넌트(별도 ns), api-pool 배치, cross-ns valkey(FQDN) 연결, GSM CSI 파일 공유로 /id INCR 검증. enterprise-api KSA GSM 바인딩 Terraform |
+| ch7 | 7.5 settings.local.json 체험 | ✅ | 2026-07-21 | .claude/settings.local.json(deny kubectl delete·apply / ask node-pools delete) 생성. 가이드 설계대로 커밋 X(로컬 체험용, 전역 gitignore 무시). harness 강제 권한 경계 개념 |
 | ch8 | 8.1 메시징 | ⬜ | | |
 | ch8 | 8.2 트레이싱 | ⬜ | | |
 | ch8 | 8.3 CronJob | ⬜ | | |
