@@ -31,9 +31,9 @@
 | ch6 | 6.2 시크릿 관리 | ✅ | 2026-07-20 | Workload Identity(클러스터+노드풀) + Secret Manager CSI addon 활성화, valkey 비번을 Google Secret Manager에 저장, SecretProviderClass(provider=gke) 파일 마운트로 v0.3.1 배포·검증. WI principal에 secretAccessor 직접 바인딩(GCP SA 미생성) |
 | ch6 | 6.3 Canary 전환 | ✅ | 2026-07-20 | rollout.yaml B/G→canary(20/50/80%), git push→Rollout 삭제→ArgoCD 재적용 순서. v0.3.2로 step 1→3→5→6 점진 승격 e2e 검증 |
 | ch6 | 6.4 아키텍처 스냅샷 | ✅ | 2026-07-20 | claude-context/architecture.md 신설(3층 지식구조·토폴로지·컴포넌트·파이프라인·GitOps·관측·ns 6+섹션) |
-| ch7 | 7.2 멀티 노드풀 | ⬜ | | |
-| ch7 | 7.3 App of Apps | ⬜ | | |
-| ch7 | 7.4 멀티테넌시 | ⬜ | | |
+| ch7 | 7.2 멀티 노드풀 | ✅ | 2026-07-21 | api/worker/ops 노드풀 Terraform 생성(pd-standard, GKE_METADATA), smb·enterprise rollout nodeSelector=api-pool로 배치 검증 |
+| ch7 | 7.3 App of Apps + Sync Wave | ✅ | 2026-07-21 | App of Apps는 6장 재편으로 기구축. sync-wave 어노테이션 추가(0 CRD/1 플랫폼/2 앱). root-app.yaml 변경은 kubectl apply로 반영(부모는 자기 미관리) |
+| ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-21 | k8s/enterprise/ 테넌트(별도 ns), api-pool 배치, cross-ns valkey(FQDN) 연결, GSM CSI 파일 공유로 /id INCR 검증. enterprise-api KSA GSM 바인딩 Terraform |
 | ch8 | 8.1 메시징 | ⬜ | | |
 | ch8 | 8.2 트레이싱 | ⬜ | | |
 | ch8 | 8.3 CronJob | ⬜ | | |
@@ -66,6 +66,8 @@
 | GitOps 관리 구조 (재편) | App of Apps + 앱별 폴더 | 단일 Application, ApplicationSet | 사용자 규칙. k8s/&lt;app&gt;/에 application.yaml + (manifests/ 또는 Helm values.yaml), root-app이 각 application.yaml만 include. 명령형 설치(helm/kubectl) 전부 선언형(ArgoCD)으로 이관 |
 | 배포 전략 전환 (ch6.3) | Argo Rollouts Canary | Blue/Green | 5장 B/G 경험 후 같은 Rollout CRD에서 strategy만 canary로 교체. 20→50→80% 점진 전환으로 위험도 최소화, 도구 변경 없이 전략만 진화 |
 | Valkey 배포 방식 (ch6.3 재작성) | 순수 매니페스트 (valkey/valkey:9.1) | bitnami helm 차트 | helm 차트의 랜덤 비번 재생성·existingSecret 볼륨 순환 회피. GSM 파일을 --requirepass로 직접 읽어 앱·서버 비번 단일 원천(GSM) 통일 |
+| 노드 스케줄링 (ch7.2) | nodeSelector(GKE 자동 라벨) | Taint/Toleration, Node Affinity | 워크로드별 노드풀 격리. cloud.google.com/gke-nodepool 키만 사용(커스텀 키는 라벨 부재로 Pending). Terraform node_pools 맵 확장 |
+| 멀티테넌시 (ch7.4) | Namespace 분리 + per-tenant Rollout | 단일 ns+라벨 격리, vCluster | 강한 격리, App of Apps와 자연 결합, 테넌트별 독립 배포. valkey는 cross-ns 공유(FQDN), 비번은 GSM 단일 원천 |
 
 ## Terraform 인프라 (IaC)
 
@@ -96,7 +98,10 @@
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot) | 3 | notiflex-api (smb, replicas 1), valkey-primary-0, 관측 스택, CSI/WI DaemonSet |
+| default-pool | e2-medium (Spot) | 3 | valkey-primary-0, 관측 스택, ArgoCD, CSI/WI DaemonSet |
+| api-pool (ch7.2) | e2-medium (Spot) | 1 | notiflex-api (smb·enterprise, nodeSelector) |
+| worker-pool (ch7.2) | e2-standard-2 (Spot) | 1 | 8.1 Kafka(Strimzi) 예정 |
+| ops-pool (ch7.2) | e2-small (Spot) | 1 | 8.2 Tempo·8.3 CronJob 예정 |
 
 - 클러스터: `notiflex-cluster` (asia-northeast3-a, Zonal, Public)
 - Gateway API: `CHANNEL_STANDARD` 활성화 / Workload Identity·Secret Manager CSI 활성화(ch6.2)

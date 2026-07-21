@@ -125,3 +125,27 @@
 - helm 차트 한계 회피: 차트는 비번을 K8s Secret으로만 참조 → CSI secretObjects 합성과 existingSecret 볼륨이 순환
 - 랜덤 비번 방지: helm이 재배포마다 비번을 새로 생성하던 문제 제거
 - 단순성: StatefulSet + Service + SecretProviderClass만으로 충분, bitnami의 configmap 3개·PDB·NetworkPolicy 등 불필요
+
+## ADR-017: 워크로드 노드 배치는 멀티 노드풀 + nodeSelector (7장)
+**시점**: 2026-07 / **결정**: Taint/Toleration·Node Affinity 대신 역할별 노드풀(api/worker/ops) + nodeSelector(GKE 자동 라벨)로 워크로드를 격리한다
+**이유**:
+- 관심사 분리: API(api-pool)/메시징(worker-pool)/운영도구(ops-pool)를 물리적으로 분리해 상호 영향 최소화
+- 단순성: nodeSelector 한 줄이면 배치 지정 완료, Taint보다 설정이 간단
+- 키 일관성: cloud.google.com/gke-nodepool 자동 라벨만 사용(커스텀 키는 라벨 부재로 Pending 유발)
+- IaC 관리: Terraform node_pools 맵 확장으로 노드풀 수명주기 관리
+
+## ADR-018: 다수 앱 관리는 App of Apps + Sync Wave (7장)
+**시점**: 2026-07 / **결정**: 단일 Application·ApplicationSet 대신 App of Apps(root-app이 각 앱 application.yaml 수집) + sync-wave로 설치 순서를 제어한다
+**이유**:
+- 앱 단위 폴더 구조와 자연 결합: k8s/<app>/application.yaml을 부모가 include
+- 설치 순서 보장: CRD(argo-rollouts, wave 0) → 플랫폼(관측, wave 1) → 앱(wave 2)로 의존성 역전 방지
+- 선언형: 새 앱은 폴더 추가로 편입, 명령형 설치 불필요
+- 자기참조 회피: 리소스는 manifests/·Helm, application.yaml만 수집
+
+## ADR-019: 멀티테넌시는 Namespace 분리 + per-tenant Rollout (7장)
+**시점**: 2026-07 / **결정**: 단일 namespace 라벨 격리·vCluster 대신 테넌트별 Namespace 분리와 독립 Rollout으로 멀티테넌시를 구현한다
+**이유**:
+- 강한 격리: 테넌트별 Namespace로 RBAC·리소스·네트워크 경계 확보
+- 독립 배포: 테넌트마다 Rollout/전략을 독립적으로 운영(enterprise는 별도 canary)
+- App of Apps와 결합: 테넌트 앱을 root-app이 자동 관리, CreateNamespace로 ns 자동 생성
+- 공유 자원 재사용: Valkey는 cross-namespace FQDN으로 공유, 비번은 GSM 단일 원천이라 테넌트 간 불일치 없음
