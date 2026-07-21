@@ -26,16 +26,15 @@ spec:
       min.insync.replicas: 1
   entityOperator:
     # topicOperator만 활성화. userOperator는 KafkaUser를 안 쓰므로 제거(CrashLoop 방지).
-    topicOperator: {}
+    # resources는 topicOperator 하위에 직접 둔다(template.topicOperatorContainer엔 resources 필드 없음).
+    topicOperator:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
     userOperator: null
-    template:
-      topicOperatorContainer:
-        resources:
-          requests:
-            cpu: 50m
-            memory: 256Mi
-          limits:
-            memory: 512Mi
 ---
 # 단일 노드가 broker+controller 이중 역할을 겸한다. worker-pool에 배치.
 apiVersion: kafka.strimzi.io/v1
@@ -60,8 +59,16 @@ spec:
   template:
     pod:
       # worker-pool(e2-standard-2)에 배치 — default-pool은 여유 없음.
-      nodeSelector:
-        cloud.google.com/gke-nodepool: worker-pool
+      # Strimzi 1.1.0의 template.pod는 nodeSelector를 지원하지 않으므로 nodeAffinity를 쓴다.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: cloud.google.com/gke-nodepool
+                    operator: In
+                    values:
+                      - worker-pool
   resources:
     requests:
       cpu: 250m
