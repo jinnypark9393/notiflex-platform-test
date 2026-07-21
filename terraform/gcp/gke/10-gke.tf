@@ -63,7 +63,10 @@ resource "google_container_node_pool" "this" {
   node_config {
     machine_type = each.value.pool.machine_type
     disk_size_gb = each.value.pool.disk_size_gb
-    spot         = each.value.pool.spot
+    # disk_type은 optional. 미지정이면 GKE 기본값(pd-balanced). 7.2 신규 풀은 SSD 쿼터
+    # 회피를 위해 pd-standard(HDD)를 명시한다.
+    disk_type = try(each.value.pool.disk_type, null)
+    spot      = each.value.pool.spot
 
     # 노드(GCE 인스턴스) 공통 라벨 (apps 폴더와 통일).
     resource_labels = local.common_labels

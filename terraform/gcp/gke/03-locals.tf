@@ -26,6 +26,32 @@ locals {
           # 6.2: WI를 노드에서 쓰려면 메타데이터 서버 모드를 GKE_METADATA로.
           workload_metadata = "GKE_METADATA"
         }
+        # 7.2 멀티 노드풀: 워크로드별 노드 격리. 모두 Spot + pd-standard(HDD, SSD 쿼터 회피).
+        # nodeSelector는 GKE 자동 라벨 cloud.google.com/gke-nodepool: <pool명>을 사용한다.
+        api-pool = {
+          machine_type      = "e2-medium" # API 워크로드(smb·enterprise rollout)
+          node_count        = 1
+          disk_size_gb      = 50
+          disk_type         = "pd-standard"
+          spot              = true
+          workload_metadata = "GKE_METADATA"
+        }
+        worker-pool = {
+          machine_type      = "e2-standard-2" # 8.1 Kafka(Strimzi) 등 무거운 워커
+          node_count        = 1
+          disk_size_gb      = 50
+          disk_type         = "pd-standard"
+          spot              = true
+          workload_metadata = "GKE_METADATA"
+        }
+        ops-pool = {
+          machine_type      = "e2-small" # 8.2 Tempo·8.3 CronJob 등 운영 도구
+          node_count        = 1
+          disk_size_gb      = 50
+          disk_type         = "pd-standard"
+          spot              = true
+          workload_metadata = "GKE_METADATA"
+        }
       }
     }
   }
