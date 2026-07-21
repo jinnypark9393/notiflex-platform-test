@@ -1,22 +1,23 @@
-# Valkey 캐시 — 순수 매니페스트 소스 (ch6.3, helm 제거).
-# GSM 파일을 직접 읽는 StatefulSet/Service/SecretProviderClass를 k8s/valkey/manifests에 둔다.
+# enterprise 테넌트 앱 — 순수 매니페스트(k8s/enterprise/manifests) 소스 (7.4).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: notiflex-valkey
+  name: notiflex-enterprise
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "2" # 앱(캐시)
+    argocd.argoproj.io/sync-wave: "2" # 앱(enterprise 테넌트)
 spec:
   project: default
   source:
     repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
     targetRevision: main
-    path: k8s/valkey/manifests
+    path: k8s/enterprise/manifests
   destination:
     server: https://kubernetes.default.svc
-    namespace: notiflex
+    namespace: enterprise
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

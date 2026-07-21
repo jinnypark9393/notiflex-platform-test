@@ -4,6 +4,8 @@ kind: Application
 metadata:
   name: notiflex-fluent-bit
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # 플랫폼(관측)
 spec:
   project: default
   sources:

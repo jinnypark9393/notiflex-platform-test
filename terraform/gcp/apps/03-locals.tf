@@ -26,6 +26,8 @@ locals {
     notiflex-default        = { namespace = "notiflex", ksa = "default" }
     notiflex-valkey         = { namespace = "notiflex", ksa = "valkey" }
     notiflex-valkey-primary = { namespace = "notiflex", ksa = "valkey-primary" }
+    # 7.4 enterprise 테넌트 앱 파드가 cross-namespace로 같은 valkey 비번을 읽는다.
+    enterprise-api = { namespace = "enterprise", ksa = "enterprise-api" }
   }
   # WI principal 접두어 (프로젝트 내장 svc.id.goog 풀).
   wi_pool_prefix = "principal://iam.googleapis.com/projects/${data.google_project.this.number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject"

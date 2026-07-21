@@ -1,0 +1,43 @@
+# enterprise 테넌트 active/preview Service + GSM 접근용 KSA.
+apiVersion: v1
+kind: Service
+metadata:
+  name: notiflex-api
+  namespace: enterprise
+  labels:
+    app: notiflex-api
+    tenant: enterprise
+spec:
+  type: ClusterIP
+  selector:
+    app: notiflex-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notiflex-api-preview
+  namespace: enterprise
+  labels:
+    app: notiflex-api
+    tenant: enterprise
+spec:
+  type: ClusterIP
+  selector:
+    app: notiflex-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: enterprise-api
+  namespace: enterprise
+  labels:
+    app: notiflex-api
+    tenant: enterprise

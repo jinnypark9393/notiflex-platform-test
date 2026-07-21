@@ -16,7 +16,7 @@ spec:
       recurse: true
       # 각 앱 폴더의 application.yaml만 부모의 배포 대상으로 삼는다.
       # (manifests/의 실제 리소스, values.yaml, root-app.yaml 자신은 제외 → 자기참조 방지)
-      include: '{smb,valkey,argo-rollouts,loki,fluent-bit,kube-prometheus}/application.yaml'
+      include: '{smb,enterprise,valkey,argo-rollouts,loki,fluent-bit,kube-prometheus}/application.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
