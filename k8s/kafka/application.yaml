@@ -1,0 +1,31 @@
+# Kafka 클러스터/토픽 — 순수 매니페스트 소스 (8.1).
+# Strimzi operator(CRD)가 wave 0에서 먼저 뜬 뒤 이 CR들이 배포되어야 한다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-kafka
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # 플랫폼: strimzi operator(0) 이후
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+    targetRevision: main
+    path: k8s/kafka/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      # operator CRD 준비 전 Kafka CR sync 시도가 실패할 수 있으므로 재시도.
+      limit: 5
+      backoff:
+        duration: 15s
+        maxDuration: 3m
+        factor: 2

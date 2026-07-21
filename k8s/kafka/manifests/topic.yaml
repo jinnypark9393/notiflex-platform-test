@@ -1,0 +1,11 @@
+# notifications 토픽. Notiflex가 /id 발행 시 이 토픽으로 메시지를 보낸다.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: notifications
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: notiflex-kafka
+spec:
+  partitions: 3
+  replicas: 1

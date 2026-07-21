@@ -1,0 +1,31 @@
+# Strimzi Kafka Operator — Helm 차트 소스 + 로컬 values.yaml (8.1).
+# 명령형 helm install 대신 ArgoCD Application으로 관리(우리 선언형 원칙).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-strimzi
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0" # 인프라/CRD: Kafka CR이 이 operator의 CRD에 의존
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/jinnypark9393/notiflex-platform-test.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://strimzi.io/charts/
+      chart: strimzi-kafka-operator
+      targetRevision: 1.1.0
+      helm:
+        valueFiles:
+          - $values/k8s/strimzi/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kafka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true # Strimzi CRD가 커서 어노테이션 한계 초과

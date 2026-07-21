@@ -1,0 +1,12 @@
+# Strimzi Kafka Operator (chart 1.1.0) — 8.1 이벤트 드리븐.
+# operator는 worker-pool에 배치하고, kafka 네임스페이스의 Kafka CR을 감시한다.
+watchNamespaces:
+  - kafka
+nodeSelector:
+  cloud.google.com/gke-nodepool: worker-pool
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
