@@ -56,6 +56,9 @@ spec:
             # 8.1: Kafka 브로커(cross-ns). /id 이벤트를 notifications 토픽에 발행하고 구독한다.
             - name: KAFKA_BROKER
               value: notiflex-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+            # 8.2: Tempo OTLP gRPC 엔드포인트(cross-ns). 트레이스를 여기로 보낸다.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: notiflex-tempo.monitoring.svc.cluster.local:4317
           volumeMounts:
             - name: secrets
               mountPath: /mnt/secrets

@@ -10,11 +10,19 @@ import (
 
 	"github.com/IBM/sarama"
 	valkey "github.com/valkey-io/valkey-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 // version은 이 바이너리의 릴리스 버전이다.
 // 이미지 태그는 CI가 git SHA(sha-<7자리>) 기반으로 자동 부여한다 (3.5부터).
-const version = "v0.4.1"
+const version = "v0.5.0"
+
+// tracer는 각 핸들러에서 span을 만들 때 사용한다. OTel 미설정 시 no-op tracer이다.
+var tracer = otel.Tracer("notiflex-api")
 
 // idKey는 /id 카운터를 저장하는 Valkey 키이다. 모든 Pod이 같은 키를 INCR하므로
 // 인메모리 카운터와 달리 Pod 수와 무관하게 전역 순차 ID가 보장된다.
@@ -49,9 +57,15 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func idHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	// 8.2: /id 요청 전체를 span으로 감싼다. Valkey INCR·Kafka 발행이 하위 span으로 이어진다.
+	ctx, span := tracer.Start(r.Context(), "idHandler")
+	defer span.End()
+
+	incrCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	id, err := valkeyClient.Do(ctx, valkeyClient.B().Incr().Key(idKey).Build()).AsInt64()
+	incrCtx, incrSpan := tracer.Start(incrCtx, "valkey.incr")
+	id, err := valkeyClient.Do(incrCtx, valkeyClient.B().Incr().Key(idKey).Build()).AsInt64()
+	incrSpan.End()
 	if err != nil {
 		log.Printf("valkey INCR failed: %v", err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "id backend unavailable"})
@@ -59,7 +73,7 @@ func idHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// 8.1: ID 생성 이벤트를 Kafka에 발행한다(비동기 후처리 파이프라인의 진입점).
 	// Kafka가 없거나 발행에 실패해도 /id 응답 자체는 성공으로 처리한다(캐시가 진실 원천).
-	publishNotification(id)
+	publishNotification(ctx, id)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":           id,
 		"generated_by": podName,
@@ -67,10 +81,12 @@ func idHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // publishNotification은 생성된 ID를 notifications 토픽에 발행한다.
-func publishNotification(id int64) {
+func publishNotification(ctx context.Context, id int64) {
 	if kafkaProducer == nil {
 		return
 	}
+	_, span := tracer.Start(ctx, "kafka.publish")
+	defer span.End()
 	payload, _ := json.Marshal(map[string]any{"id": id, "generated_by": podName})
 	msg := &sarama.ProducerMessage{
 		Topic: notificationsTopic,
@@ -79,6 +95,37 @@ func publishNotification(id int64) {
 	if _, _, err := kafkaProducer.SendMessage(msg); err != nil {
 		log.Printf("kafka publish failed: %v", err)
 	}
+}
+
+// initTracer는 OTLP gRPC exporter로 트레이스를 Tempo에 보내는 TracerProvider를 설정한다.
+// OTEL_EXPORTER_OTLP_ENDPOINT가 없으면 트레이싱을 비활성화한다(no-op tracer 유지).
+// 반환된 shutdown 함수는 종료 시 남은 span을 flush한다.
+func initTracer(ctx context.Context) (func(context.Context) error, error) {
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		return func(context.Context) error { return nil }, nil
+	}
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	res, err := resource.New(ctx,
+		resource.WithAttributes(semconv.ServiceName("notiflex-api")),
+	)
+	if err != nil {
+		return nil, err
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(tp)
+	tracer = tp.Tracer("notiflex-api")
+	log.Printf("otel tracing 활성화: endpoint=%s", endpoint)
+	return tp.Shutdown, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -161,6 +208,14 @@ func main() {
 			log.Fatalf("failed to read password file %s: %v", pwFile, err)
 		}
 		password = string(data)
+	}
+
+	// 8.2: OTel 트레이싱 초기화(OTEL_EXPORTER_OTLP_ENDPOINT 있을 때만 활성).
+	shutdownTracer, err := initTracer(context.Background())
+	if err != nil {
+		log.Printf("otel tracer 초기화 실패(트레이싱 없이 계속): %v", err)
+	} else {
+		defer func() { _ = shutdownTracer(context.Background()) }()
 	}
 
 	client, err := connectValkey(addr, password)
