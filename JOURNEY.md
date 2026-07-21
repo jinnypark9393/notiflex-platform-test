@@ -35,7 +35,7 @@
 | ch7 | 7.3 App of Apps + Sync Wave | ✅ | 2026-07-21 | App of Apps는 6장 재편으로 기구축. sync-wave 어노테이션 추가(0 CRD/1 플랫폼/2 앱). root-app.yaml 변경은 kubectl apply로 반영(부모는 자기 미관리) |
 | ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-21 | k8s/enterprise/ 테넌트(별도 ns), api-pool 배치, cross-ns valkey(FQDN) 연결, GSM CSI 파일 공유로 /id INCR 검증. enterprise-api KSA GSM 바인딩 Terraform |
 | ch7 | 7.5 settings.local.json 체험 | ✅ | 2026-07-21 | .claude/settings.local.json(deny kubectl delete·apply / ask node-pools delete) 생성. 가이드 설계대로 커밋 X(로컬 체험용, 전역 gitignore 무시). harness 강제 권한 경계 개념 |
-| ch8 | 8.1 메시징 | ⬜ | | |
+| ch8 | 8.1 메시징 | ✅ | 2026-07-21 | Strimzi 1.1.0(ArgoCD Application) + Kafka 4.3.0 KRaft 단일브로커(worker-pool nodeAffinity), notifications 토픽. 앱 Producer/Consumer(sarama v1.60.0), /id 발행→전체 파티션 구독 수신 검증(v0.4.1) |
 | ch8 | 8.2 트레이싱 | ⬜ | | |
 | ch8 | 8.3 CronJob | ⬜ | | |
 | ch9 | 9.1 저장소 분석 | ⬜ | | |
@@ -69,6 +69,7 @@
 | Valkey 배포 방식 (ch6.3 재작성) | 순수 매니페스트 (valkey/valkey:9.1) | bitnami helm 차트 | helm 차트의 랜덤 비번 재생성·existingSecret 볼륨 순환 회피. GSM 파일을 --requirepass로 직접 읽어 앱·서버 비번 단일 원천(GSM) 통일 |
 | 노드 스케줄링 (ch7.2) | nodeSelector(GKE 자동 라벨) | Taint/Toleration, Node Affinity | 워크로드별 노드풀 격리. cloud.google.com/gke-nodepool 키만 사용(커스텀 키는 라벨 부재로 Pending). Terraform node_pools 맵 확장 |
 | 멀티테넌시 (ch7.4) | Namespace 분리 + per-tenant Rollout | 단일 ns+라벨 격리, vCluster | 강한 격리, App of Apps와 자연 결합, 테넌트별 독립 배포. valkey는 cross-ns 공유(FQDN), 비번은 GSM 단일 원천 |
+| 메시징 (ch8.1) | Kafka (Strimzi) | RabbitMQ, NATS, Redis Streams | 업계 표준, 영속성, Strimzi CRD로 GitOps 호환. KRaft로 ZooKeeper 없이 단일 브로커. worker-pool 배치 |
 
 ## Terraform 인프라 (IaC)
 
@@ -89,7 +90,8 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | sha-dbc2ea9 (app v0.3.2) | 3.5부터 CI가 git SHA 태그 자동 부여. Canary로 승격된 최신 버전 |
+| Notiflex 이미지 | app v0.4.1 | 3.5부터 CI가 git SHA 태그 자동 부여. Kafka Producer/Consumer 추가(전체 파티션 구독) |
+| Kafka | Strimzi 1.1.0 / Kafka 4.3.0 | KRaft 단일 브로커, worker-pool. sarama v1.60.0 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12). App of Apps 재편 후 root-app + 자식 6개 관리 |
 | Argo Rollouts | v1.9.1 (chart 2.41.1) | 2026-07-20 App of Apps 재편으로 helm chart(argo/argo-rollouts) 기반 ArgoCD 관리로 전환 |
 | Valkey | valkey/valkey:9.1-alpine | ch6.3에서 bitnami helm→순수 매니페스트 재작성. GSM 파일 --requirepass, ArgoCD 관리 |
@@ -135,4 +137,6 @@
 | 6.3 | App of Apps adopt로 valkey helm이 비번을 랜덤 재생성 → GSM엔 옛 비번 남아 앱이 WRONGPASS로 CrashLoop | (1차) 현재 Valkey 실제 비번을 GSM 새 버전으로 동기화 + 파드 재시작으로 급한 불. (근본) bitnami helm을 버리고 순수 매니페스트로 재작성 — valkey가 GSM 파일을 --requirepass로 직접 읽어 앱과 단일 원천 공유 |
 | 6.3 | bitnami/공식 valkey helm 차트 모두 existingSecret을 볼륨 직접마운트 → CSI secretObjects 합성 Secret과 순환(Secret 없어서 마운트 실패) | 차트로는 GSM 파일 직접 읽기 불가(차트가 command를 안 열어줌). 순수 매니페스트에서 StatefulSet command를 직접 짜 `--requirepass "$(cat /mnt/gsm-secrets/valkey-password)"`로 해결 |
 | 6.3 | valkey 순수 매니페스트 apply 시 `StatefulSet spec Forbidden: updates to ... forbidden`(불변필드) | 옛 bitnami StatefulSet selector/volumeClaimTemplates가 불변이라 patch 불가. `kubectl delete statefulset valkey-primary`로 삭제 후 ArgoCD가 새 매니페스트로 재생성 |
+| 8.1 | Kafka Application OutOfSync — 지정한 nodeSelector/resources가 live에서 사라짐 | Strimzi 1.1.0의 `KafkaNodePool.template.pod`는 nodeSelector 미지원(affinity/tolerations만) → nodeAffinity로 변경. entityOperator resources는 `template.topicOperatorContainer`가 아니라 `topicOperator.resources`에 직접. 잘못된 경로는 스키마에서 조용히 제거됨 |
+| 8.1 | /id 발행은 되는데 Consumer가 메시지 미수신 | Consumer가 파티션 0만 구독. 토픽이 partitions=3이라 sarama가 다른 파티션(1,2)에 발행 → 파티션 0은 비어있음. `consumer.Partitions()`로 전체 파티션을 goroutine별 구독하도록 수정 |
 | 6.3 | 새 valkey KSA(`valkey`)가 GSM 접근 시 `secretmanager.versions.access denied` | 6.2에서 부여한 대상은 `default`/`valkey-primary` KSA뿐. 새 StatefulSet의 `valkey` KSA에도 WI principal로 secretAccessor 바인딩 필요 |

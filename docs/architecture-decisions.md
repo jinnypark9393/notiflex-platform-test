@@ -149,3 +149,11 @@
 - 독립 배포: 테넌트마다 Rollout/전략을 독립적으로 운영(enterprise는 별도 canary)
 - App of Apps와 결합: 테넌트 앱을 root-app이 자동 관리, CreateNamespace로 ns 자동 생성
 - 공유 자원 재사용: Valkey는 cross-namespace FQDN으로 공유, 비번은 GSM 단일 원천이라 테넌트 간 불일치 없음
+
+## ADR-020: 메시징은 Kafka(Strimzi, KRaft) (8장)
+**시점**: 2026-07 / **결정**: RabbitMQ·NATS·Redis Streams 대신 Kafka(Strimzi operator, KRaft 모드)로 이벤트 드리븐을 구현한다
+**이유**:
+- 업계 표준: 이벤트 드리븐 아키텍처의 사실상 표준, 학습 가치가 높다
+- GitOps 호환: Strimzi가 Kafka를 CRD(Kafka/KafkaNodePool/KafkaTopic)로 선언, ArgoCD로 관리
+- KRaft 모드: ZooKeeper 없이 단일 노드로 운영해 리소스 절약
+- 메시지 영속성: 디스크에 저장, Consumer가 죽어도 유실 없음. Redis Streams는 기능 제한, NATS는 채택률 낮음
