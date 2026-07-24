@@ -36,8 +36,9 @@
 | ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-21 | k8s/enterprise/ 테넌트(별도 ns), api-pool 배치, cross-ns valkey(FQDN) 연결, GSM CSI 파일 공유로 /id INCR 검증. enterprise-api KSA GSM 바인딩 Terraform |
 | ch7 | 7.5 settings.local.json 체험 | ✅ | 2026-07-21 | .claude/settings.local.json(deny kubectl delete·apply / ask node-pools delete) 생성. 가이드 설계대로 커밋 X(로컬 체험용, 전역 gitignore 무시). harness 강제 권한 경계 개념 |
 | ch8 | 8.1 메시징 | ✅ | 2026-07-21 | Strimzi 1.1.0(ArgoCD Application) + Kafka 4.3.0 KRaft 단일브로커(worker-pool nodeAffinity), notifications 토픽. 앱 Producer/Consumer(sarama v1.60.0), /id 발행→전체 파티션 구독 수신 검증(v0.4.1) |
-| ch8 | 8.2 트레이싱 | ⬜ | | |
-| ch8 | 8.3 CronJob | ⬜ | | |
+| ch8 | 8.2 트레이싱 | ✅ | 2026-07-24 | Tempo(grafana/tempo 1.24.4, ops-pool) ArgoCD Application, OTLP gRPC(4317). 앱 OTel SDK(idHandler/valkey.incr/kafka.publish span, v0.5.0), Grafana Explore에서 트레이스 조회 검증 |
+| ch8 | 8.3 CronJob | ✅ | 2026-07-24 | healthcheck CronJob(*/5, ops-pool), /health 200 검증. Job 3개 Complete(history 3), ops-pool 배치 확인. smb App of Apps로 관리 |
+| ch8 | 8.4 command-guardrails | ✅ | 2026-07-24 | command-guardrails/ 3종(kafka-topic-delete/cronjob-manual-run/tenant-namespace-delete). 우리 구조(GitOps 경유·GSM·root-app include)에 맞춰 작성, 영구 자산으로 커밋 |
 | ch9 | 9.1 저장소 분석 | ⬜ | | |
 | ch9 | 9.2 회고 | ⬜ | | |
 | ch9 | 9.3 온보딩 문서 | ⬜ | | |
@@ -70,6 +71,8 @@
 | 노드 스케줄링 (ch7.2) | nodeSelector(GKE 자동 라벨) | Taint/Toleration, Node Affinity | 워크로드별 노드풀 격리. cloud.google.com/gke-nodepool 키만 사용(커스텀 키는 라벨 부재로 Pending). Terraform node_pools 맵 확장 |
 | 멀티테넌시 (ch7.4) | Namespace 분리 + per-tenant Rollout | 단일 ns+라벨 격리, vCluster | 강한 격리, App of Apps와 자연 결합, 테넌트별 독립 배포. valkey는 cross-ns 공유(FQDN), 비번은 GSM 단일 원천 |
 | 메시징 (ch8.1) | Kafka (Strimzi) | RabbitMQ, NATS, Redis Streams | 업계 표준, 영속성, Strimzi CRD로 GitOps 호환. KRaft로 ZooKeeper 없이 단일 브로커. worker-pool 배치 |
+| 트레이싱 (ch8.2) | Grafana Tempo | Jaeger, Zipkin | 기존 Grafana 통합(메트릭·로그·트레이스 3축 한 UI), 경량 단일바이너리, OTLP 네이티브. ops-pool 배치 |
+| 배치 자동화 (ch8.3) | K8s CronJob | 외부 cron, Argo Workflows | 쿠버네티스 네이티브, ops-pool 배치, ArgoCD 매니페스트로 관리 |
 
 ## Terraform 인프라 (IaC)
 
@@ -90,8 +93,9 @@
 | google provider | 7.39.0 | static 고정 |
 | GKE (master) | 1.35.5-gke.1241004 | |
 | Go | 1.25 | go.mod + golang:1.25-alpine |
-| Notiflex 이미지 | app v0.4.1 | 3.5부터 CI가 git SHA 태그 자동 부여. Kafka Producer/Consumer 추가(전체 파티션 구독) |
+| Notiflex 이미지 | app v0.5.0 | 3.5부터 CI가 git SHA 태그 자동 부여. OTel 트레이싱 span 추가 |
 | Kafka | Strimzi 1.1.0 / Kafka 4.3.0 | KRaft 단일 브로커, worker-pool. sarama v1.60.0 |
+| Tempo | grafana/tempo 1.24.4 (Tempo 2.9.0) | single binary, ops-pool. OTLP gRPC 4317. OTel Go SDK 앱 연동 |
 | ArgoCD | v3.4.5 | stable manifest 설치 (2026-07-12). App of Apps 재편 후 root-app + 자식 6개 관리 |
 | Argo Rollouts | v1.9.1 (chart 2.41.1) | 2026-07-20 App of Apps 재편으로 helm chart(argo/argo-rollouts) 기반 ArgoCD 관리로 전환 |
 | Valkey | valkey/valkey:9.1-alpine | ch6.3에서 bitnami helm→순수 매니페스트 재작성. GSM 파일 --requirepass, ArgoCD 관리 |
@@ -139,4 +143,6 @@
 | 6.3 | valkey 순수 매니페스트 apply 시 `StatefulSet spec Forbidden: updates to ... forbidden`(불변필드) | 옛 bitnami StatefulSet selector/volumeClaimTemplates가 불변이라 patch 불가. `kubectl delete statefulset valkey-primary`로 삭제 후 ArgoCD가 새 매니페스트로 재생성 |
 | 8.1 | Kafka Application OutOfSync — 지정한 nodeSelector/resources가 live에서 사라짐 | Strimzi 1.1.0의 `KafkaNodePool.template.pod`는 nodeSelector 미지원(affinity/tolerations만) → nodeAffinity로 변경. entityOperator resources는 `template.topicOperatorContainer`가 아니라 `topicOperator.resources`에 직접. 잘못된 경로는 스키마에서 조용히 제거됨 |
 | 8.1 | /id 발행은 되는데 Consumer가 메시지 미수신 | Consumer가 파티션 0만 구독. 토픽이 partitions=3이라 sarama가 다른 파티션(1,2)에 발행 → 파티션 0은 비어있음. `consumer.Partitions()`로 전체 파티션을 goroutine별 구독하도록 수정 |
+| 8.2 | Tempo 서비스 이름이 `tempo`가 아니라 `notiflex-tempo` | helm releaseName이 ArgoCD Application 이름을 따라감. datasource URL·앱 OTEL_EXPORTER_OTLP_ENDPOINT를 `notiflex-tempo.monitoring.svc.cluster.local`로 정정 |
+| 8.2 | Grafana datasource default 충돌 우려 | Loki가 이미 isDefault:false(ch4.3 가드레일 선반영)라 Tempo도 false로 넣어 충돌 없음. Grafana 재시작 정상 |
 | 6.3 | 새 valkey KSA(`valkey`)가 GSM 접근 시 `secretmanager.versions.access denied` | 6.2에서 부여한 대상은 `default`/`valkey-primary` KSA뿐. 새 StatefulSet의 `valkey` KSA에도 WI principal로 secretAccessor 바인딩 필요 |

@@ -157,3 +157,26 @@
 - GitOps 호환: Strimzi가 Kafka를 CRD(Kafka/KafkaNodePool/KafkaTopic)로 선언, ArgoCD로 관리
 - KRaft 모드: ZooKeeper 없이 단일 노드로 운영해 리소스 절약
 - 메시지 영속성: 디스크에 저장, Consumer가 죽어도 유실 없음. Redis Streams는 기능 제한, NATS는 채택률 낮음
+
+## ADR-021: 분산 트레이싱은 Grafana Tempo (8장)
+**시점**: 2026-07 / **결정**: Jaeger·Zipkin 대신 Grafana Tempo로 분산 트레이싱을 구현하고, 앱에 OpenTelemetry SDK를 붙인다
+**이유**:
+- Grafana 통합: 4장에서 운영 중인 Grafana에서 바로 트레이스를 조회, 별도 UI 불필요
+- 3축 통합: Prometheus(메트릭)+Loki(로그)+Tempo(트레이스)를 한 대시보드에서 연결
+- 경량: 단일 바이너리 모드, ops-pool에 25m로 배치
+- OTLP 네이티브: OpenTelemetry 프로토콜 기본 지원, 벤더 중립
+
+## ADR-022: 배치 자동화는 K8s CronJob (8장)
+**시점**: 2026-07 / **결정**: 외부 cron·Argo Workflows 대신 K8s CronJob으로 주기 작업을 실행한다
+**이유**:
+- 쿠버네티스 네이티브: 별도 스케줄러 없이 클러스터가 관리
+- GitOps 관리: 매니페스트로 선언, ArgoCD App of Apps에 편입
+- 노드 격리: ops-pool 배치로 운영 도구를 앱과 분리
+- 이력 관리: successfulJobsHistoryLimit으로 최근 실행만 유지
+
+## ADR-023: 위험 작업은 command-guardrails/ 절차서 (8장)
+**시점**: 2026-07 / **결정**: 위험 작업(Kafka Topic 삭제, CronJob 수동 실행, 테넌트 Namespace 삭제)은 command-guardrails/의 절차서(사전 확인→실행→사후 검증)를 따른다
+**이유**:
+- 강제(harness)와 절차(문서)의 분리: settings.local.json이 실행 차단이라면, command-guardrails는 "어떻게 안전하게 하는가"의 누적 지식
+- GitOps 일관성: 절차서가 kubectl 직접 삭제 대신 Git 경유를 명시해 selfHeal 충돌 방지
+- 영구 자산: 체험 후 삭제하는 settings.local.json과 달리 git에 누적, 새 위험 작업마다 추가
